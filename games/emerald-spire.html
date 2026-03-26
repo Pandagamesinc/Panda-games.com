@@ -3,11 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emerald Spire</title>
+    <title>Emerald Spire 3D RPG</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <h1>Welcome to Emerald Spire</h1>
-    <p>Your adventure in the Emerald Spire begins here...</p>
-    <!-- Additional game code goes here -->
+    <script>
+        // Three.js scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Character creation
+        const characterGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const characterMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const character = new THREE.Mesh(characterGeometry, characterMaterial);
+        scene.add(character);
+
+        // Terrain generation
+        const terrainGeometry = new THREE.PlaneGeometry(100, 100, 32, 32);
+        const terrainMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22, side: THREE.DoubleSide });
+        const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+        terrain.rotation.x = - Math.PI / 2;
+        scene.add(terrain);
+
+        // Enemy creation
+        const enemyGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        enemy.position.set(2, 0.5, 2);
+        scene.add(enemy);
+
+        // Combat system
+        function attack() {
+            // Simple attack function
+            console.log('Attack initiated!');
+        }
+
+        // Game loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        // Initialization
+        camera.position.z = 5;
+        animate();
+    </script>
 </body>
 </html>
