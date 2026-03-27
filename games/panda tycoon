@@ -2,220 +2,166 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panda Clicker: Bamboo Tycoon</title>
+    <title>Panda Clicker: Golden Edition</title>
     <style>
-        /* CSS: Making it look polished */
         body { 
-            text-align: center; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: #f1f8e9; 
-            color: #1b5e20;
-            padding: 20px;
+            text-align: center; font-family: 'Arial Rounded MT Bold', sans-serif; 
+            background: linear-gradient(135deg, #f5f5dc, #d4e157); 
+            height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center;
         }
-
-        #game-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        #game-box { 
+            background: rgba(255, 255, 255, 0.9); padding: 30px; border-radius: 30px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2); width: 420px; border: 4px solid #558b2f;
         }
-
-        .panda-display {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            height: 150px;
+        .stats { font-size: 36px; color: #2e7d32; margin-bottom: 5px; }
+        .golden-stats { color: #f9a825; font-size: 18px; margin-bottom: 20px; font-weight: bold; }
+        
+        #panda-btn { 
+            width: 160px; cursor: pointer; transition: transform 0.1s; 
+            user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
         }
+        #panda-btn:active { transform: scale(0.8); }
 
-        #panda-main { 
-            width: 120px; 
-            cursor: pointer; 
-            transition: transform 0.1s; 
-        }
-
-        #panda-main:active { transform: scale(0.9); }
-
-        .friend-panda { width: 80px; animation: bounce 2s infinite; }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .stats { font-size: 28px; margin: 20px 0; font-weight: bold; }
-
-        .shop { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 15px; 
-            margin-top: 30px; 
-        }
-
-        .upgrade { 
-            border: 2px solid #a5d6a7; 
-            padding: 15px; 
-            border-radius: 15px; 
-            background: #f9fbf9; 
-        }
-
+        .shop { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
         button { 
-            background: #4caf50; 
-            color: white; 
-            border: none; 
-            padding: 10px 15px; 
-            cursor: pointer; 
-            border-radius: 8px;
-            font-weight: bold;
-            width: 100%;
+            padding: 12px; border: none; border-radius: 12px; 
+            background: #689f38; color: white; font-weight: bold; 
+            cursor: pointer; transition: 0.2s;
         }
+        button:hover:not(:disabled) { background: #33691e; }
+        button:disabled { background: #cfd8dc; color: #90a4ae; cursor: not-allowed; }
 
-        button:hover { background: #388e3c; }
-        button:disabled { background: #cfd8dc; cursor: not-allowed; }
-
-        .reset-btn { 
-            margin-top: 40px; 
-            background: #ef5350; 
-            width: auto; 
-            font-size: 12px;
+        #prestige-section {
+            margin-top: 20px; padding: 15px; border: 2px dashed #f9a825; border-radius: 15px;
+            background: #fff9c4; display: none;
         }
+        .prestige-btn { background: #f9a825; color: black; }
+        .prestige-btn:hover { background: #f57f17; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <h1>Panda Clicker 🐼</h1>
-        
-        <div class="stats">
-            🎋 <span id="bamboo-count">0</span> Bamboo
-        </div>
+<div id="game-box">
+    <h1>Panda Clicker 🐼</h1>
+    <div class="stats">🎋 <span id="bamboo">0</span></div>
+    <div class="golden-stats">✨ Golden Multiplier: x<span id="multiplier">1.0</span></div>
+    
+    <img id="panda-btn" src="https://img.icons8.com/emoji/256/panda-emoji.png" onclick="doClick()">
+    
+    <div id="friend-display" style="font-size: 30px; height: 40px;"></div>
 
-        <div class="panda-display">
-            <img id="panda-main" src="https://img.icons8.com/emoji/256/panda-emoji.png" onclick="clickPanda()">
-            <div id="friend-container"></div>
-        </div>
-
-        <p>Click Power: <span id="click-power">1</span> | Auto: <span id="auto-rate">0</span>/s</p>
-
-        <div class="shop">
-            <div class="upgrade">
-                <h3>Sharper Claws</h3>
-                <p>+1 per click</p>
-                <button id="buy-upgrade" onclick="buyUpgrade()">Cost: <span id="upgrade-cost">10</span></button>
-            </div>
-
-            <div class="upgrade">
-                <h3>Bamboo Forest</h3>
-                <p>+1 per second</p>
-                <button id="buy-auto" onclick="buyAuto()">Cost: <span id="auto-cost">50</span></button>
-            </div>
-        </div>
-
-        <div id="special-shop" style="margin-top: 20px;">
-            </div>
-
-        <button class="reset-btn" onclick="resetGame()">Reset Progress</button>
+    <div class="shop">
+        <button id="btn-upgrade" onclick="buyUpgrade()">Upgrade Claws (+1/click) | Cost: <span id="cost-upgrade">10</span></button>
+        <button id="btn-auto" onclick="buyAuto()">Bamboo Forest (+1/sec) | Cost: <span id="cost-auto">50</span></button>
+        <button id="btn-friend" onclick="buyFriend()">Adopt Friend | Cost: 500</button>
     </div>
 
-    <script>
-        // --- Game Logic & Persistence ---
+    <div id="prestige-section">
+        <p>You can prestige for <span id="pending-gold">0</span> Golden Bamboo!</p>
+        <button class="prestige-btn" onclick="prestige()">RESET FOR GLORY</button>
+    </div>
+
+    <p style="font-size: 10px; color: #777; margin-top: 20px; cursor: pointer;" onclick="reset()">Hard Reset Game</p>
+</div>
+
+<script>
+    // --- Audio Engine ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playNote(freq, type, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // --- Game Logic ---
+    let data = JSON.parse(localStorage.getItem('pandaSave_v3')) || {
+        bamboo: 0, clickPower: 1, autoPower: 0,
+        costUpgrade: 10, costAuto: 50, hasFriend: false,
+        goldenBamboo: 0
+    };
+
+    function getMultiplier() {
+        return 1 + (data.goldenBamboo * 0.1); // Each Golden Bamboo is +10% boost
+    }
+
+    function updateUI() {
+        const mult = getMultiplier();
+        document.getElementById('bamboo').innerText = Math.floor(data.bamboo);
+        document.getElementById('multiplier').innerText = mult.toFixed(1);
+        document.getElementById('cost-upgrade').innerText = data.costUpgrade;
+        document.getElementById('cost-auto').innerText = data.costAuto;
         
-        // Variables: Load from storage or set defaults
-        let bamboo = parseFloat(localStorage.getItem('panda_bamboo')) || 0;
-        let clickPower = parseInt(localStorage.getItem('panda_clickPower')) || 1;
-        let upgradeCost = parseInt(localStorage.getItem('panda_upgradeCost')) || 10;
-        let autoCost = parseInt(localStorage.getItem('panda_autoCost')) || 50;
-        let autoRate = parseInt(localStorage.getItem('panda_autoRate')) || 0;
-        let hasFriend = localStorage.getItem('panda_hasFriend') === 'true';
-
-        function updateUI() {
-            document.getElementById('bamboo-count').innerText = Math.floor(bamboo);
-            document.getElementById('click-power').innerText = clickPower;
-            document.getElementById('auto-rate').innerText = autoRate;
-            document.getElementById('upgrade-cost').innerText = upgradeCost;
-            document.getElementById('auto-cost').innerText = autoCost;
-
-            // Button States
-            document.getElementById('buy-upgrade').disabled = bamboo < upgradeCost;
-            document.getElementById('buy-auto').disabled = bamboo < autoCost;
-
-            // Handle Friend Visuals
-            const friendContainer = document.getElementById('friend-container');
-            const specialShop = document.getElementById('special-shop');
-
-            if (hasFriend) {
-                friendContainer.innerHTML = '<img class="friend-panda" src="https://img.icons8.com/emoji/256/panda-emoji.png" style="filter: sepia(0.5);">';
-                specialShop.innerHTML = "<p>✨ You and your friend are happy! ✨</p>";
-            } else {
-                specialShop.innerHTML = `<button onclick="buyFriend()">Adopt a Panda Friend (500 Bamboo)</button>`;
-                document.querySelector('#special-shop button').disabled = bamboo < 500;
-            }
+        document.getElementById('btn-upgrade').disabled = data.bamboo < data.costUpgrade;
+        document.getElementById('btn-auto').disabled = data.bamboo < data.costAuto;
+        
+        // Friend Check
+        const fBtn = document.getElementById('btn-friend');
+        if(data.hasFriend) {
+            fBtn.style.display = "none";
+            document.getElementById('friend-display').innerText = "🐼💖🐼";
+        } else {
+            fBtn.disabled = data.bamboo < 500;
         }
 
-        function saveGame() {
-            localStorage.setItem('panda_bamboo', bamboo);
-            localStorage.setItem('panda_clickPower', clickPower);
-            localStorage.setItem('panda_upgradeCost', upgradeCost);
-            localStorage.setItem('panda_autoCost', autoCost);
-            localStorage.setItem('panda_autoRate', autoRate);
-            localStorage.setItem('panda_hasFriend', hasFriend);
+        // Prestige Logic: Show if bamboo > 5000
+        const prestigeSection = document.getElementById('prestige-section');
+        if (data.bamboo >= 5000 || data.goldenBamboo > 0) {
+            prestigeSection.style.display = "block";
+            let pending = Math.floor(Math.sqrt(data.bamboo / 500));
+            document.getElementById('pending-gold').innerText = pending;
         }
 
-        function clickPanda() {
-            bamboo += clickPower;
-            updateUI();
-            saveGame();
-        }
+        localStorage.setItem('pandaSave_v3', JSON.stringify(data));
+    }
 
-        function buyUpgrade() {
-            if (bamboo >= upgradeCost) {
-                bamboo -= upgradeCost;
-                clickPower += 1;
-                upgradeCost = Math.round(upgradeCost * 1.6);
-                updateUI();
-                saveGame();
-            }
-        }
-
-        function buyAuto() {
-            if (bamboo >= autoCost) {
-                bamboo -= autoCost;
-                autoRate += 1;
-                autoCost = Math.round(autoCost * 1.9);
-                updateUI();
-                saveGame();
-            }
-        }
-
-        function buyFriend() {
-            if (bamboo >= 500) {
-                bamboo -= 500;
-                hasFriend = true;
-                updateUI();
-                saveGame();
-            }
-        }
-
-        function resetGame() {
-            if(confirm("Are you sure? You will lose all your bamboo!")) {
-                localStorage.clear();
-                location.reload(); // Refreshes the page to reset variables
-            }
-        }
-
-        // Loop for passive income
-        setInterval(() => {
-            if (autoRate > 0) {
-                bamboo += autoRate / 10; // Divided by 10 because it runs every 100ms
-                updateUI();
-            }
-        }, 100); // Smoother updates (10 times per second)
-
-        // Initial update
+    function doClick() {
+        data.bamboo += (data.clickPower * getMultiplier());
+        playNote(400 + (Math.random() * 100), 'sine', 0.1); // "Pop" sound
         updateUI();
-    </script>
-</body>
-</html>
+    }
+
+    function buyUpgrade() {
+        if(data.bamboo >= data.costUpgrade) {
+            data.bamboo -= data.costUpgrade;
+            data.clickPower += 1;
+            data.costUpgrade = Math.round(data.costUpgrade * 1.5);
+            playNote(600, 'triangle', 0.2); // "Success" sound
+            updateUI();
+        }
+    }
+
+    function buyAuto() {
+        if(data.bamboo >= data.costAuto) {
+            data.bamboo -= data.costAuto;
+            data.autoPower += 1;
+            data.costAuto = Math.round(data.costAuto * 1.6);
+            playNote(800, 'square', 0.1);
+            updateUI();
+        }
+    }
+
+    function buyFriend() {
+        if(data.bamboo >= 500) {
+            data.bamboo -= 500;
+            data.hasFriend = true;
+            playNote(1000, 'sine', 0.5);
+            updateUI();
+        }
+    }
+
+    function prestige() {
+        let pending = Math.floor(Math.sqrt(data.bamboo / 500));
+        if(confirm(`Prestige now for ${pending} Golden Bamboo? You will lose your current bamboo and upgrades, but your earnings will be MUCH faster!`)) {
+            data.goldenBamboo += pending;
+            data.bamboo = 0;
+            data.clickPower = 1;
+            data.autoPower = 0;
+            data.costUpgrade = 10;
+            data.costAuto = 50
