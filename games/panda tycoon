@@ -42,9 +42,9 @@
 <body>
 
 <div id="game-box">
-    <h1>Panda Clicker 🐼</h1>
-    <div class="stats">🎋 <span id="bamboo">0</span></div>
-    <div class="golden-stats">✨ Golden Multiplier: x<span id="multiplier">1.0</span></div>
+    <h1>Panda Clicker </h1>
+    <div class="stats"> <span id="bamboo">0</span></div>
+    <div class="golden-stats"> Golden Multiplier: x<span id="multiplier">1.0</span></div>
     
     <img id="panda-btn" src="https://img.icons8.com/emoji/256/panda-emoji.png" onclick="doClick()">
     
