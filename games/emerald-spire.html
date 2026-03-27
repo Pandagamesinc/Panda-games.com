@@ -2,54 +2,186 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emerald Spire 3D RPG</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>EMERALD SPIRE: 2D GRAPHIC RPG</title>
+    <style>
+        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
+        #ui-layer { width: 800px; display: flex; justify-content: space-between; padding: 10px; background: #222; border: 2px solid #444; }
+        #game-wrapper { position: relative; width: 800px; height: 400px; border: 4px solid #00ff41; margin-top: 10px; }
+        canvas { background: #111; display: block; }
+        #combat-log { width: 800px; height: 150px; background: #000; border: 2px solid #444; margin-top: 10px; overflow-y: auto; padding: 10px; font-size: 14px; box-sizing: border-box; }
+        .enemy-text { color: #ff4444; }
+        .system-text { color: #aaa; font-style: italic; }
+    </style>
 </head>
 <body>
-    <script>
-        // Three.js scene setup
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
 
-        // Character creation
-        const characterGeometry = new THREE.BoxGeometry(1, 1, 1);
-        const characterMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        const character = new THREE.Mesh(characterGeometry, characterMaterial);
-        scene.add(character);
+<div id="ui-layer">
+    <div id="stat-hp">HP: 50/50</div>
+    <div id="stat-mp">MP: 25/25</div>
+    <div id="stat-floor">FLOOR: 1</div>
+    <div id="stat-gold">GOLD: 50</div>
+</div>
 
-        // Terrain generation
-        const terrainGeometry = new THREE.PlaneGeometry(100, 100, 32, 32);
-        const terrainMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22, side: THREE.DoubleSide });
-        const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
-        terrain.rotation.x = - Math.PI / 2;
-        scene.add(terrain);
+<div id="game-wrapper">
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+</div>
 
-        // Enemy creation
-        const enemyGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-        const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
-        enemy.position.set(2, 0.5, 2);
-        scene.add(enemy);
+<div id="combat-log">
+    <div class="system-text">Use WASD/Arrows to move. Walk into the RED square to fight!</div>
+</div>
 
-        // Combat system
-        function attack() {
-            // Simple attack function
-            console.log('Attack initiated!');
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const log = document.getElementById('combat-log');
+
+    // --- GAME STATE ---
+    let hero = { 
+        x: 50, y: 200, size: 20, speed: 4, 
+        hp: 50, maxHP: 50, mp: 25, maxMP: 25, 
+        gold: 50, floor: 1, atk: 5, ac: 12, magicMod: 1
+    };
+    
+    let monster = { x: 600, y: 180, size: 30, alive: true };
+    let merchant = { x: 400, y: 50, size: 25, active: false };
+    let gameState = "EXPLORE"; // EXPLORE, COMBAT, SHOP
+    let currentEnemy = null;
+
+    // --- INPUT HANDLING ---
+    const keys = {};
+    window.addEventListener('keydown', e => { 
+        keys[e.key.toLowerCase()] = true; 
+        if (gameState === "COMBAT") handleCombatInput(e.key.toLowerCase());
+        if (gameState === "SHOP") handleShopInput(e.key.toLowerCase());
+    });
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    function print(msg, cl = "") {
+        const div = document.createElement('div');
+        div.className = cl;
+        div.innerHTML = msg;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function updateStats() {
+        document.getElementById('stat-hp').innerText = `HP: ${hero.hp}/${hero.maxHP}`;
+        document.getElementById('stat-mp').innerText = `MP: ${hero.mp}/${hero.maxMP}`;
+        document.getElementById('stat-floor').innerText = `FLOOR: ${hero.floor}`;
+        document.getElementById('stat-gold').innerText = `GOLD: ${hero.gold}`;
+    }
+
+    // --- COMBAT LOGIC ---
+    function startCombat() {
+        gameState = "COMBAT";
+        currentEnemy = {
+            name: hero.floor % 20 === 0 ? "BOSS" : "Monster",
+            hp: 20 + (hero.floor * 5),
+            ac: 10 + Math.floor(hero.floor / 10),
+            atk: 5 + Math.floor(hero.floor / 8)
+        };
+        print(`⚔️ FIGHT STARTED! HP: ${currentEnemy.hp}`, "enemy-text");
+        print("[A] Attack | [1] Spark (3mp) | [2] Fireball (10mp)");
+    }
+
+    function handleCombatInput(key) {
+        let dmg = 0;
+        if (key === 'a') {
+            dmg = Math.floor(Math.random() * 8) + hero.atk;
+            print(`You strike for ${dmg}!`);
+        } else if (key === '1' && hero.mp >= 3) {
+            dmg = 12; hero.mp -= 3;
+            print(`✨ Spark deals ${dmg}!`);
+        } else if (key === '2' && hero.mp >= 10) {
+            dmg = 30; hero.mp -= 10;
+            print(`🔥 Fireball deals ${dmg}!`);
+        } else return;
+
+        currentEnemy.hp -= dmg;
+        if (currentEnemy.hp <= 0) {
+            print("✅ Victory! Floor Cleared.");
+            hero.floor++;
+            hero.gold += 20 + hero.floor;
+            monster.x = 100 + Math.random() * 600;
+            monster.y = 50 + Math.random() * 300;
+            gameState = "EXPLORE";
+            if (hero.floor % 5 === 0) merchant.active = true;
+        } else {
+            let eDmg = Math.max(1, currentEnemy.atk - Math.floor(hero.ac/4));
+            hero.hp -= eDmg;
+            print(`💥 Monster hits you for ${eDmg}!`, "enemy-text");
+        }
+        updateStats();
+        if (hero.hp <= 0) location.reload();
+    }
+
+    function handleShopInput(key) {
+        if (key === '1' && hero.gold >= 50) {
+            hero.hp = hero.maxHP; hero.gold -= 50; print("🛒 Healed!");
+        } else if (key === '0') {
+            gameState = "EXPLORE";
+            merchant.active = false;
+            print("Leaving shop...");
+        }
+        updateStats();
+    }
+
+    // --- GAME LOOP ---
+    function update() {
+        if (gameState === "EXPLORE") {
+            if (keys['w'] || keys['arrowup']) hero.y -= hero.speed;
+            if (keys['s'] || keys['arrowdown']) hero.y += hero.speed;
+            if (keys['a'] || keys['arrowleft']) hero.x -= hero.speed;
+            if (keys['d'] || keys['arrowright']) hero.x += hero.speed;
+
+            // Collision with Monster
+            if (Math.abs(hero.x - monster.x) < 25 && Math.abs(hero.y - monster.y) < 25) {
+                startCombat();
+            }
+
+            // Collision with Merchant
+            if (merchant.active && Math.abs(hero.x - merchant.x) < 25 && Math.abs(hero.y - merchant.y) < 25) {
+                gameState = "SHOP";
+                print("🏪 SHOP: [1] Potion (50g) | [0] Exit");
+            }
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Merchant
+        if (merchant.active) {
+            ctx.fillStyle = "#0066ff";
+            ctx.fillRect(merchant.x, merchant.y, merchant.size, merchant.size);
+            ctx.fillStyle = "white";
+            ctx.fillText("MERCHANT", merchant.x - 10, merchant.y - 5);
         }
 
-        // Game loop
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        }
+        // Draw Monster
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(monster.x, monster.y, monster.size, monster.size);
+        ctx.fillStyle = "white";
+        ctx.fillText("MONSTER", monster.x - 5, monster.y - 5);
 
-        // Initialization
-        camera.position.z = 5;
-        animate();
-    </script>
+        // Draw Hero
+        ctx.fillStyle = "#00ff41";
+        ctx.fillRect(hero.x, hero.y, hero.size, hero.size);
+        
+        // Draw HP Bar above Hero
+        ctx.fillStyle = "red";
+        ctx.fillRect(hero.x, hero.y - 10, hero.size, 4);
+        ctx.fillStyle = "lime";
+        ctx.fillRect(hero.x, hero.y - 10, (hero.hp / hero.maxHP) * hero.size, 4);
+
+        requestAnimationFrame(() => {
+            update();
+            draw();
+        });
+    }
+
+    updateStats();
+    draw();
+</script>
 </body>
 </html>
