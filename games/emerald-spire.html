@@ -2,18 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>EMERALD SPIRE: FIXED EDITION</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMERALD SPIRE: GITHUB EDITION</title>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
-        #ui-layer { width: 950px; display: grid; grid-template-columns: 1.2fr 1fr 0.8fr 1fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
-        #game-wrapper { position: relative; width: 950px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; }
-        canvas { display: block; width: 100%; height: 100%; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; touch-action: none; }
+        #ui-layer { width: 950px; display: grid; grid-template-columns: 1.2fr 1fr 0.8fr 1fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; z-index: 5; }
+        #game-wrapper { position: relative; width: 950px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; overflow: hidden; }
+        canvas { display: block; background: #000; cursor: crosshair; }
         #combat-log { width: 950px; height: 120px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; }
         
-        /* Modals */
-        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10; }
-        .menu-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 3px solid #00ff41; padding: 20px; text-align: center; width: 450px; color: white; }
-        .option { background: #333; border: 1px solid #00ff41; margin: 10px; padding: 10px; cursor: pointer; display: block; width: 100%; color: #00ff41; font-weight: bold; }
+        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; }
+        .menu-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 3px solid #00ff41; padding: 20px; text-align: center; width: 400px; color: white; }
+        .option { background: #333; border: 1px solid #00ff41; margin: 10px; padding: 10px; cursor: pointer; display: block; width: 100%; color: #00ff41; font-weight: bold; font-family: 'Courier New'; }
         .option:hover { background: #00ff41; color: #000; }
         
         .stat-val { color: #ffeb3b; }
@@ -21,13 +21,15 @@
         .mp-bar { color: #00d4ff; font-weight: bold; }
         button { cursor: pointer; background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; font-family: 'Courier New'; font-weight: bold; }
         button:hover { background: #00ff41; color: #000; }
+        .system-text { color: #aaa; }
+        .regen-text { color: #44ff44; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div>
-        <div id="char-name" style="color:gold; font-weight: bold;">SELECT YOUR HERO</div>
+        <div id="char-name" style="color:gold; font-weight: bold;">SELECT CLASS</div>
         <div class="hp-bar" id="stat-hp">HP: --</div>
         <div class="mp-bar" id="stat-mp">MP: --</div>
         <div style="color:#4444ff" id="stat-xp">XP: 0/100</div>
@@ -35,17 +37,17 @@
     <div style="font-size: 12px;">
         <div>STR:<span id="s-str" class="stat-val">10</span> DEX:<span id="s-dex" class="stat-val">10</span> CON:<span id="s-con" class="stat-val">10</span></div>
         <div>INT:<span id="s-int" class="stat-val">10</span> WIS:<span id="s-wis" class="stat-val">10</span> CHA:<span id="s-cha" class="stat-val">10</span></div>
-        <div id="active-spells" style="color:#00ff41; margin-top:5px; border-top: 1px solid #444;">Hotkeys: 1, 2, 3</div>
+        <div id="active-spells" style="color:#00ff41; margin-top:5px; border-top: 1px solid #444;">1: Spell A | 2: Spell B</div>
     </div>
     <div>
         <div id="stat-floor" style="font-size: 20px; color: #00ff41;">FLOOR: 1</div>
         <div id="stat-gold" style="color:gold">GOLD: 0</div>
     </div>
     <div id="class-select">
-        <button onclick="pickClass('Mage')">Mage</button>
-        <button onclick="pickClass('Paladin')">Paladin</button>
-        <button onclick="pickClass('Rogue')">Rogue</button>
-        <button onclick="pickClass('Archer')">Archer</button>
+        <button onclick="pickClass('Mage')">🧙 Mage</button>
+        <button onclick="pickClass('Paladin')">👦 Paladin</button>
+        <button onclick="pickClass('Rogue')">👤 Rogue</button>
+        <button onclick="pickClass('Archer')">🏹 Archer</button>
     </div>
 </div>
 
@@ -60,7 +62,7 @@
 </div>
 
 <div id="combat-log">
-    <div class="system-text">Choose a class at the top to begin your journey...</div>
+    <div class="system-text">Waiting for class selection...</div>
 </div>
 
 <script>
@@ -82,90 +84,92 @@
 
     const monsterDB = [
         { name: "Goblin", sprite: "👺", min: 1, hp: 20, atk: 5, xp: 15 },
-        { name: "Rat", sprite: "🐀", min: 1, hp: 15, atk: 3, xp: 10 },
-        { name: "Orc", sprite: "👹", min: 5, hp: 80, atk: 12, xp: 50 },
-        { name: "Troll", sprite: "👣", min: 20, hp: 400, atk: 30, xp: 200 },
-        { name: "Elder Dragon", sprite: "🐉", min: 50, hp: 2500, atk: 100, xp: 5000 }
+        { name: "Skeleton", sprite: "💀", min: 1, hp: 30, atk: 7, xp: 25 },
+        { name: "Orc", sprite: "👹", min: 5, hp: 100, atk: 15, xp: 60 },
+        { name: "Spider", sprite: "🕷️", min: 2, hp: 25, atk: 8, xp: 20 },
+        { name: "Dragon", sprite: "🐉", min: 10, hp: 1000, atk: 50, xp: 1000 }
     ];
-
-    function pickClass(cls) {
-        hero.type = cls;
-        hero.active = true;
-        document.getElementById('class-select').style.display = 'none';
-        
-        if(cls === 'Mage') { hero.sprite = '🧙‍♂️'; hero.int=20; hero.wis=15; hero.hp=70; hero.mp=100; }
-        if(cls === 'Paladin') { hero.sprite = '👦'; hero.str=18; hero.con=18; hero.hp=140; hero.mp=40; }
-        if(cls === 'Rogue') { hero.sprite = '👤'; hero.dex=18; hero.cha=15; hero.hp=90; hero.mp=60; }
-        if(cls === 'Archer') { hero.sprite = '🏹'; hero.dex=18; hero.wis=12; hero.hp=100; hero.mp=60; }
-        
-        hero.maxHP = hero.hp; hero.maxMP = hero.mp;
-        gameState = "EXPLORE";
-        addLog(`Started as ${cls}. Use ARROW KEYS to move!`, "regen-text");
-        spawnFloor();
-        updateUI();
-    }
 
     function addLog(t, c) {
         let div = document.createElement('div');
-        div.className = c;
+        div.className = c || "";
         div.innerText = t;
         log.prepend(div);
     }
 
+    function pickClass(cls) {
+        hero.type = cls;
+        hero.active = true;
+        document.getElementById('class-select').style.visibility = 'hidden';
+        
+        if(cls === 'Mage') { hero.sprite = '🧙‍♂️'; hero.int=22; hero.wis=18; hero.hp=70; hero.mp=120; }
+        if(cls === 'Paladin') { hero.sprite = '👦'; hero.str=18; hero.con=20; hero.hp=150; hero.mp=40; }
+        if(cls === 'Rogue') { hero.sprite = '👤'; hero.dex=22; hero.cha=15; hero.hp=90; hero.mp=60; }
+        if(cls === 'Archer') { hero.sprite = '🏹'; hero.dex=20; hero.wis=15; hero.hp=100; hero.mp=70; }
+        
+        hero.maxHP = hero.hp; hero.maxMP = hero.mp;
+        gameState = "EXPLORE";
+        addLog(`Level 1 ${cls} initiated. Movement: Arrow Keys.`, "regen-text");
+        spawnFloor();
+        updateUI();
+    }
+
     function spawnFloor() {
         enemies = [];
-        merchant = null;
-        if (hero.floor % 5 === 0) {
-            merchant = { x: 450, y: 250, sprite: "🧙" };
-            addLog("Floor Checkpoint: Merchant Found!", "regen-text");
-        } else {
-            let count = 2 + Math.floor(hero.floor / 5);
-            for(let i=0; i<count; i++) {
-                let possible = monsterDB.filter(m => hero.floor >= m.min);
-                let m = possible[Math.floor(Math.random() * possible.length)];
-                enemies.push({ 
-                    ...m, 
-                    x: Math.random()*800 + 50, 
-                    y: Math.random()*400 + 50, 
-                    alive: true, 
-                    curHP: m.hp + (hero.floor * 10),
-                    atk: m.atk + (hero.floor * 2)
-                });
-            }
+        let count = 2 + Math.floor(hero.floor / 4);
+        for(let i=0; i<count; i++) {
+            let possible = monsterDB.filter(m => hero.floor >= m.min);
+            let m = possible[Math.floor(Math.random() * possible.length)];
+            enemies.push({ 
+                ...m, 
+                x: Math.random()*850 + 50, 
+                y: Math.random()*400 + 50, 
+                alive: true, 
+                curHP: m.hp + (hero.floor * 15),
+                atk: m.atk + (hero.floor * 3)
+            });
         }
     }
 
     function startCombat(en) {
         gameState = "COMBAT";
-        let heroAtk = (hero.str * 0.8) + (hero.dex * 0.4) + (hero.int * 0.6);
+        let heroAtk = (hero.str * 1) + (hero.dex * 0.5) + (hero.int * 1);
+        addLog(`Combat started with ${en.name}!`, "system-text");
+
         let fight = setInterval(() => {
+            if (gameState !== "COMBAT") { clearInterval(fight); return; }
+            
             en.curHP -= heroAtk;
             hero.hp -= Math.max(1, en.atk - (hero.con / 2));
-            
             updateUI();
 
             if (en.curHP <= 0) {
-                clearInterval(fight); en.alive = false;
+                clearInterval(fight); 
+                en.alive = false;
                 hero.xp += en.xp; hero.gold += 20 + (hero.floor * 5);
-                addLog(`Slayed ${en.name}!`, "regen-text");
+                addLog(`Victorious! +${en.xp} XP`, "regen-text");
                 if (hero.xp >= hero.nextXP) triggerLevelUp();
                 if (enemies.filter(e => e.alive).length === 0) { hero.floor++; spawnFloor(); }
                 gameState = "EXPLORE";
             }
-            if (hero.hp <= 0) { alert("Game Over! Reached Floor: " + hero.floor); location.reload(); }
-        }, 400);
+            if (hero.hp <= 0) { 
+                clearInterval(fight);
+                alert("Game Over! Floor: " + hero.floor); 
+                location.reload(); 
+            }
+        }, 500);
     }
 
     function triggerLevelUp() {
-        hero.level++; hero.xp = 0; hero.nextXP = Math.floor(hero.nextXP * 1.5);
+        hero.level++; hero.xp = 0; hero.nextXP = Math.floor(hero.nextXP * 1.6);
         gameState = "MENU";
         document.getElementById('modal-overlay').style.display = 'block';
         const container = document.getElementById('modal-options');
         container.innerHTML = '';
 
-        [{l: "Boost Strength", a: () => hero.str += 5}, 
-         {l: "Boost Intelligence", a: () => hero.int += 5}, 
-         {l: "Boost Vitality", a: () => {hero.con += 5; hero.maxHP += 30; hero.hp = hero.maxHP;}}
+        [{l: "STR +5 (Damage)", a: () => hero.str += 5}, 
+         {l: "INT +5 (Magic)", a: () => hero.int += 5}, 
+         {l: "VIT +30 (HP)", a: () => {hero.con += 5; hero.maxHP += 30; hero.hp = hero.maxHP;}}
         ].forEach(opt => {
             let b = document.createElement('button');
             b.className = 'option';
@@ -188,55 +192,57 @@
         });
     }
 
-    window.addEventListener('keydown', e => keys[e.code] = true);
-    window.addEventListener('keyup', e => keys[e.code] = false);
+    window.addEventListener('keydown', e => { keys[e.code] = true; });
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
 
     function draw() {
+        // Clear screen
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if(gameState === "EXPLORE") {
-            if(keys['ArrowUp'] && hero.y > 40) hero.y -= hero.speed;
-            if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
-            if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
-            if(keys['ArrowRight'] && hero.x < 920) hero.x += hero.speed;
+        if(gameState === "EXPLORE" || gameState === "COMBAT") {
+            // Movement
+            if(gameState === "EXPLORE") {
+                if(keys['ArrowUp'] && hero.y > 50) hero.y -= hero.speed;
+                if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
+                if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
+                if(keys['ArrowRight'] && hero.x < 920) hero.x += hero.speed;
+            }
 
+            // Draw Enemies
             enemies.forEach(en => {
                 if(!en.alive) return;
                 ctx.fillStyle = "white";
-                ctx.font = "40px serif";
+                ctx.font = "40px Arial";
                 ctx.fillText(en.sprite, en.x, en.y);
-                if(Math.abs(hero.x - en.x) < 30 && Math.abs(hero.y - en.y) < 30) startCombat(en);
-            });
-
-            if(merchant) {
-                ctx.fillStyle = "white";
-                ctx.font = "45px serif";
-                ctx.fillText(merchant.sprite, merchant.x, merchant.y);
-                if(Math.abs(hero.x - merchant.x) < 30 && Math.abs(hero.y - merchant.y) < 30) {
-                    hero.floor++; spawnFloor(); addLog("Merchant blessed you! Ascending...", "regen-text");
+                
+                // Collision
+                if(gameState === "EXPLORE" && Math.abs(hero.x - en.x) < 35 && Math.abs(hero.y - en.y) < 35) {
+                    startCombat(en);
                 }
-            }
+            });
         }
 
+        // Draw Hero
         if(hero.active) {
             ctx.fillStyle = "white";
-            ctx.font = "45px serif";
+            ctx.font = "45px Arial";
             ctx.fillText(hero.sprite, hero.x, hero.y);
         }
 
         requestAnimationFrame(draw);
     }
 
-    // Passive Regen
+    // Regen
     setInterval(() => {
         if(gameState === "EXPLORE" && hero.active) {
-            hero.hp = Math.min(hero.maxHP, hero.hp + (hero.wis / 8));
-            hero.mp = Math.min(hero.maxMP, hero.mp + (hero.int / 8));
+            hero.hp = Math.min(hero.maxHP, hero.hp + (hero.wis / 10));
+            hero.mp = Math.min(hero.maxMP, hero.mp + (hero.int / 10));
             updateUI();
         }
     }, 1000);
 
+    // Initial draw call
     draw();
 </script>
 </body>
