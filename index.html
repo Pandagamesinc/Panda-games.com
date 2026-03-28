@@ -3,36 +3,31 @@
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
     
+    // Initialize hero and game state
     let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
-    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
-    let enemies = [], currentEnemy = null;
+    let checkpoint = null, gameState = "SELECT", mySpells = [], particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
+    let enemies = [], merchant = null, currentEnemy = null;
 
     const MONSTER_NAMES = ["Void Slime", "Spire Sentinel", "Shadow Knight", "Cursed Remnant", "Static Wraith"];
     const BOSS_NAMES = ["Emerald Watcher", "The Spire Core", "Void Arbiter"];
 
-    // --- ENHANCED MOVEMENT ENGINE ---
-    // Tracks multiple keys for diagonal movement and WASD support
+    // --- ENHANCED KEYBOARD ENGINE ---
     window.addEventListener('keydown', (e) => { 
-        keys[e.key.toLowerCase()] = true; // Support lowercase for WASD
-        keys[e.key] = true;               // Support Arrow keys
+        keys[e.key] = true; 
+        // Prevent page scrolling when using arrows
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight", " "].includes(e.key)) e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => { 
-        keys[e.key.toLowerCase()] = false; 
-        keys[e.key] = false; 
-    });
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
     function addLog(msg, color) {
-        const div = document.createElement('div'); 
-        div.style.color = color || 'white';
-        div.innerText = `> ${msg}`; 
-        log.prepend(div);
+        const div = document.createElement('div'); div.style.color = color || 'white';
+        div.innerText = `> ${msg}`; log.prepend(div);
     }
 
     function previewClass(cls, color) {
         tempSelection = { cls, color };
-        const startBtn = document.getElementById('confirm-start');
-        startBtn.style.display = 'block';
-        startBtn.innerText = `START AS ${cls.toUpperCase()}`;
+        document.getElementById('confirm-start').style.display = 'block';
+        document.getElementById('confirm-start').innerText = `START ${cls.toUpperCase()}`;
     }
 
     function startGame() {
@@ -41,12 +36,15 @@
         hero.type = cls; hero.color = color; hero.active = true;
         document.getElementById('selection-area').style.display = 'none';
 
-        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; }
-        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; }
-        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; }
+        // Set Class Stats
+        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; mySpells=['FIRE']; }
+        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; mySpells=['SNIPE']; }
+        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; mySpells=['BASH']; }
 
-        gameState = "EXPLORE"; spawnFloor(); updateUI();
-        addLog(`Dungeon Level ${hero.level} entered.`, "gray");
+        gameState = "EXPLORE"; 
+        spawnFloor(); 
+        updateUI();
+        window.focus(); // Ensure the window captures keyboard input
     }
 
     function drawHero(x, y) {
@@ -62,58 +60,89 @@
             ctx.fillStyle = "#f3e5ab"; ctx.fillRect(x-10, y-5, 20, 30);
             ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
         }
+        // Mini Mana Bar
+        ctx.fillStyle = "#333"; ctx.fillRect(x-15, y+28, 30, 3);
         ctx.fillStyle = "cyan"; ctx.fillRect(x-15, y+28, (hero.mp/hero.maxMP)*30, 3);
         ctx.restore();
     }
 
     function spawnFloor() {
         enemies = [];
+        let isArena = (hero.level % 10 === 0);
         document.getElementById('floor-num').innerText = hero.level;
         for(let i=0; i<3; i++) {
             enemies.push({ 
                 name: MONSTER_NAMES[Math.floor(Math.random()*MONSTER_NAMES.length)],
-                x: Math.random()*800+50, y: Math.random()*300+100, 
+                x: Math.random()*800+50, y: Math.random()*400+50, 
                 hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), 
                 atk: 10+(hero.level*3), alive: true 
             });
         }
     }
 
+    // Standard UI and Battle Logic (Kept from your original)
+    function playerAction(type) {
+        if (type === 'ATTACK') {
+            let dmg = Math.floor(hero.str * 0.8);
+            currentEnemy.hp -= dmg; 
+            spawnParticle(currentEnemy.x, currentEnemy.y, `-${dmg}`, "white");
+        }
+        updateUI(); updateBattleUI(); 
+        if(currentEnemy.hp <= 0) victory(); 
+        else setTimeout(monsterTurn, 600);
+    }
+
+    function monsterTurn() {
+        let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
+        hero.hp -= totalDmg;
+        spawnParticle(hero.x, hero.y, `-${Math.floor(totalDmg)}`, "red");
+        updateUI(); updateBattleUI();
+    }
+
+    function victory() {
+        currentEnemy.alive = false;
+        gameState = "EXPLORE";
+        document.getElementById('battle-overlay').style.display = 'none';
+        if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
+    }
+
+    function updateUI() { 
+        if(!hero.active) return; 
+        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
+        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
+    }
+
+    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 60}); }
+
     function loop() {
         ctx.clearRect(0, 0, 900, 500); 
-        ctx.save();
-        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
         
-        if(hero.active && (gameState === "EXPLORE")) {
-            // MOVEMENT LOGIC (WASD + ARROWS)
-            if((keys['w'] || keys['ArrowUp']) && hero.y > 60) hero.y -= hero.speed;
-            if((keys['s'] || keys['ArrowDown']) && hero.y < 460) hero.y += hero.speed;
-            if((keys['a'] || keys['ArrowLeft']) && hero.x > 40) hero.x -= hero.speed;
-            if((keys['d'] || keys['ArrowRight']) && hero.x < 860) hero.x += hero.speed;
+        if(hero.active && gameState === "EXPLORE") {
+            // --- MOVEMENT LOGIC (ARROWS + WASD) ---
+            if((keys['ArrowUp'] || keys['w'] || keys['W']) && hero.y > 20) hero.y -= hero.speed;
+            if((keys['ArrowDown'] || keys['s'] || keys['S']) && hero.y < 480) hero.y += hero.speed;
+            if((keys['ArrowLeft'] || keys['a'] || keys['A']) && hero.x > 20) hero.x -= hero.speed;
+            if((keys['ArrowRight'] || keys['d'] || keys['D']) && hero.x < 880) hero.x += hero.speed;
             
+            // Draw Enemies & Detect Collision
             enemies.forEach(en => { 
                 if(en.alive) { 
                     ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30); 
-                    if(Math.abs(hero.x-en.x)<30 && Math.abs(hero.y-en.y)<30) { 
+                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
                         currentEnemy=en; 
-                        document.getElementById('battle-overlay').style.display='flex'; 
                         gameState="BATTLE"; 
+                        document.getElementById('battle-overlay').style.display='flex'; 
                     } 
                 } 
             });
             drawHero(hero.x, hero.y);
         } else if (gameState === "BATTLE") {
-            drawHero(hero.x, hero.y); // Keep drawing hero during battle
+            // Keep hero visible during battle
+            drawHero(hero.x, hero.y);
         }
-        
-        ctx.restore(); 
+
+        particles.forEach((p, i) => { ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; if(p.life<=0) particles.splice(i,1); });
         requestAnimationFrame(loop);
     }
     loop();
-    
-    // UI Helpers (simplified for brevity)
-    function updateUI() { 
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
-    }
 </script>
