@@ -5,36 +5,39 @@
     <title>EMERALD SPIRE: D&D EDITION</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
-        #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; padding: 10px; background: #111; border: 2px solid #444; margin-top: 5px; }
-        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: url('https://www.transparenttextures.com/patterns/dark-stone.png'); }
+        #ui-layer { width: 900px; display: grid; grid-template-columns: 1.2fr 1fr 0.8fr 1fr; gap: 10px; padding: 10px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
+        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #111; }
         canvas { display: block; background: rgba(0,0,0,0.8); }
         #combat-log { width: 900px; height: 120px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; }
         
-        /* Level Up Modal */
-        #level-up-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 3px solid gold; padding: 20px; text-align: center; z-index: 100; width: 400px; }
-        .skill-option { background: #333; border: 1px solid #00ff41; margin: 10px; padding: 10px; cursor: pointer; }
+        #level-up-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 3px solid gold; padding: 20px; text-align: center; z-index: 100; width: 400px; box-shadow: 0 0 50px #000; }
+        .skill-option { background: #333; border: 1px solid #00ff41; margin: 10px; padding: 10px; cursor: pointer; transition: 0.2s; }
         .skill-option:hover { background: #00ff41; color: #000; }
         
         .stat-val { color: #ffeb3b; }
-        .hp-bar { color: #ff4444; }
+        .hp-bar { color: #ff4444; font-weight: bold; }
+        .mp-bar { color: #00d4ff; font-weight: bold; }
         .xp-bar { color: #4444ff; }
+        button { cursor: pointer; background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 5px; }
+        button:hover { background: #00ff41; color: #000; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div>
-        <div id="char-name">CLASS: ---</div>
-        <div class="hp-bar" id="stat-hp">HP: 100/100</div>
+        <div id="char-name" style="color:gold">CLASS: SELECT BELOW</div>
+        <div class="hp-bar" id="stat-hp">HP: --/--</div>
+        <div class="mp-bar" id="stat-mp">MP: --/--</div>
         <div class="xp-bar" id="stat-xp">XP: 0/100</div>
     </div>
-    <div>
-        <div>STR: <span id="s-str" class="stat-val">10</span> DEX: <span id="s-dex" class="stat-val">10</span></div>
-        <div>CON: <span id="s-con" class="stat-val">10</span> INT: <span id="s-int" class="stat-val">10</span></div>
-        <div>WIS: <span id="s-wis" class="stat-val">10</span> CHA: <span id="s-cha" class="stat-val">10</span></div>
+    <div style="font-size: 12px;">
+        <div>STR: <span id="s-str" class="stat-val">10</span> DEX: <span id="s-dex" class="stat-val">10</span> CON: <span id="s-con" class="stat-val">10</span></div>
+        <div>INT: <span id="s-int" class="stat-val">10</span> WIS: <span id="s-wis" class="stat-val">10</span> CHA: <span id="s-cha" class="stat-val">10</span></div>
+        <div id="active-spells" style="color:#00ff41; margin-top:5px; font-size:11px;">Spells: None</div>
     </div>
     <div>
-        <div id="stat-floor">FLOOR: 1</div>
+        <div id="stat-floor" style="font-size: 20px; color: #00ff41;">FLOOR: 1</div>
         <div id="stat-gold">GOLD: 0</div>
     </div>
     <div id="class-select">
@@ -60,77 +63,180 @@
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
 
-    // --- GAME DATA ---
     let hero = {
         active: false, type: '', sprite: '',
         x: 450, y: 250, size: 40, speed: 5,
-        hp: 100, maxHP: 100, xp: 0, nextXP: 100, level: 1, gold: 0, floor: 1,
+        hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, gold: 0, floor: 1,
         str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
-        skills: []
+        spells: []
     };
 
     let enemies = [];
     let keys = {};
     let gameState = "SELECT";
 
-    // --- TABLES ---
+    // --- ENCYCLOPEDIA ---
     const monsterDB = [
-        { name: "Goblin", sprite: "👺", minFloor: 1, maxFloor: 5, hp: 20, xp: 15 },
-        { name: "Giant Spider", sprite: "🕷️", minFloor: 1, maxFloor: 5, hp: 25, xp: 20 },
-        { name: "Orc", sprite: "👹", minFloor: 6, maxFloor: 15, hp: 50, xp: 40 },
-        { name: "Troll", sprite: "👣", minFloor: 16, maxFloor: 30, hp: 120, xp: 100 },
-        { name: "Fire Dragon", sprite: "🐉", minFloor: 31, maxFloor: 100, hp: 500, xp: 500 }
+        // Level 1: Minions
+        { name: "Goblin", sprite: "👺", minFloor: 1, maxFloor: 10, hp: 20, atk: 4, xp: 15 },
+        { name: "Giant Rat", sprite: "🐀", minFloor: 1, maxFloor: 5, hp: 15, atk: 3, xp: 10 },
+        { name: "Skeleton", sprite: "💀", minFloor: 1, maxFloor: 10, hp: 25, atk: 5, xp: 20 },
+        // Level 2-5: Challenges
+        { name: "Orc Brute", sprite: "👹", minFloor: 5, maxFloor: 20, hp: 60, atk: 10, xp: 45 },
+        { name: "Zombie", sprite: "🧟", minFloor: 5, maxFloor: 15, hp: 80, atk: 6, xp: 35 },
+        { name: "Ghoul", sprite: "👻", minFloor: 10, maxFloor: 25, hp: 50, atk: 15, xp: 60 },
+        // Mid-Tier
+        { name: "Ogre", sprite: "👹", minFloor: 20, maxFloor: 50, hp: 250, atk: 25, xp: 150 },
+        { name: "Minotaur", sprite: "🐂", minFloor: 30, maxFloor: 60, hp: 400, atk: 35, xp: 300 },
+        { name: "Troll", sprite: "👣", minFloor: 40, maxFloor: 70, hp: 600, atk: 45, xp: 500 },
+        // High Level
+        { name: "Elder Dragon", sprite: "🐉", minFloor: 70, maxFloor: 100, hp: 2500, atk: 100, xp: 2000 },
+        { name: "Lich Lord", sprite: "🧙", minFloor: 85, maxFloor: 100, hp: 1500, atk: 150, xp: 5000 },
+        { name: "Beholder", sprite: "👁️", minFloor: 90, maxFloor: 100, hp: 3000, atk: 120, xp: 7000 }
     ];
+
+    const spellBook = {
+        Mage: [
+            { name: "Fireball", cost: 20, power: 40, icon: "🔥", desc: "AOE Blast" },
+            { name: "Mana Shield", cost: 15, power: 0, icon: "💠", desc: "Heal MP/HP" },
+            { name: "Arcane Nova", cost: 40, power: 100, icon: "🎇", desc: "Giant Dmg" }
+        ],
+        Paladin: [
+            { name: "Holy Light", cost: 15, power: 30, icon: "✨", desc: "Heal Self" },
+            { name: "Smite", cost: 20, power: 25, icon: "🔨", desc: "Phys Burst" },
+            { name: "Lay on Hands", cost: 40, power: 100, icon: "🤲", desc: "Full Heal" }
+        ],
+        Rogue: [
+            { name: "Shadow Step", cost: 10, power: 150, icon: "💨", desc: "Teleport" },
+            { name: "Poison Stab", cost: 15, power: 30, icon: "🧪", desc: "Fast Burst" },
+            { name: "Vanish", cost: 30, power: 0, icon: "🌫️", desc: "Invis-Heal" }
+        ],
+        Archer: [
+            { name: "Multi-Shot", cost: 15, power: 15, icon: "🏹", desc: "Hit All" },
+            { name: "Eagle Eye", cost: 10, power: 0, icon: "👁️", desc: "Buff Dex" },
+            { name: "Dragon Piercer", cost: 35, power: 80, icon: "💘", desc: "Snipe" }
+        ]
+    };
 
     const allSkills = [
-        { name: "Heavy Blow", desc: "+5 Phys Dmg", effect: () => hero.str += 2 },
-        { name: "Dash", desc: "+1 Speed", effect: () => hero.speed += 1 },
-        { name: "Heal Charge", desc: "Regen +2", effect: () => hero.wis += 2 },
-        { name: "Fireball", desc: "Magic Burn", effect: () => hero.int += 2 },
-        { name: "Shield Wall", desc: "+20 Max HP", effect: () => { hero.con += 2; hero.maxHP += 20; } }
+        { name: "Heavy Blow", desc: "+3 STR / +3 CON", effect: () => { hero.str += 3; hero.con += 3; hero.maxHP += 20; } },
+        { name: "Flash Step", desc: "+4 DEX / +1 Speed", effect: () => { hero.dex += 4; hero.speed += 1; } },
+        { name: "Arcane Study", desc: "+5 INT / +20 MP", effect: () => { hero.int += 5; hero.maxMP += 20; } },
+        { name: "Divine Wisdom", desc: "+4 WIS / +2 CHA", effect: () => { hero.wis += 4; hero.cha += 2; } },
+        { name: "Meditate", desc: "Full Restore HP/MP", effect: () => { hero.hp = hero.maxHP; hero.mp = hero.maxMP; } }
     ];
 
-    // --- INITIALIZATION ---
+    // --- GAME LOGIC ---
     function pickClass(cls) {
         hero.type = cls;
         hero.active = true;
+        hero.spells = spellBook[cls];
         document.getElementById('class-select').style.display = 'none';
-        if(cls === 'Mage') { hero.sprite = '🧙‍♂️'; hero.int = 16; hero.wis = 14; hero.hp = 70; }
-        if(cls === 'Paladin') { hero.sprite = '🛡️'; hero.str = 15; hero.con = 16; hero.hp = 120; }
-        if(cls === 'Rogue') { hero.sprite = '👤'; hero.dex = 16; hero.cha = 14; }
-        if(cls === 'Archer') { hero.sprite = '🏹'; hero.dex = 16; hero.wis = 12; }
-        hero.maxHP = hero.hp;
+        
+        if(cls === 'Mage') { hero.sprite = '🧙‍♂️'; hero.int=18; hero.wis=15; hero.hp=70; hero.maxHP=70; hero.mp=100; hero.maxMP=100; }
+        if(cls === 'Paladin') { hero.sprite = '👦'; hero.str=16; hero.con=17; hero.hp=140; hero.maxHP=140; hero.wis=12; }
+        if(cls === 'Rogue') { hero.sprite = '👤'; hero.dex=18; hero.cha=15; hero.hp=90; hero.maxHP=90; }
+        if(cls === 'Archer') { hero.sprite = '🏹'; hero.dex=17; hero.wis=14; hero.hp=100; hero.maxHP=100; }
+        
+        document.getElementById('active-spells').innerText = `1:${hero.spells[0].name} 2:${hero.spells[1].name} 3:${hero.spells[2].name}`;
         gameState = "EXPLORE";
-        addLog(`Welcome, ${cls}. Descend into the Spire...`, "system-text");
+        addLog(`The Spire awaits, ${cls}. Press 1, 2, 3 for Spells!`, "regen-text");
         spawnEnemies();
+        updateUI();
     }
 
-    // --- CORE SYSTEMS ---
     function addLog(t, c) {
         log.innerHTML = `<div class="${c}">${t}</div>` + log.innerHTML;
     }
 
     function spawnEnemies() {
         enemies = [];
-        let count = 3 + Math.floor(hero.floor / 5);
+        let count = 2 + Math.floor(hero.floor / 10);
         for(let i=0; i<count; i++) {
-            let possible = monsterDB.filter(m => hero.floor >= m.minFloor);
+            let possible = monsterDB.filter(m => hero.floor >= m.minFloor && hero.floor <= m.maxFloor);
+            if (possible.length === 0) possible = [monsterDB[monsterDB.length-1]]; // Default to Boss
             let m = possible[Math.floor(Math.random() * possible.length)];
-            enemies.push({ ...m, x: Math.random()*800, y: Math.random()*400, alive: true, curHP: m.hp + (hero.floor * 5) });
+            enemies.push({ 
+                ...m, 
+                x: Math.random()*800 + 50, 
+                y: Math.random()*400 + 50, 
+                alive: true, 
+                curHP: m.hp + (hero.floor * 10),
+                atk: m.atk + (hero.floor * 2)
+            });
         }
+    }
+
+    function castSpell(num) {
+        let s = hero.spells[num-1];
+        if(!s || hero.mp < s.cost) return;
+        hero.mp -= s.cost;
+        addLog(`Cast ${s.name}! ${s.icon}`, "regen-text");
+
+        if(s.name === "Fireball" || s.name === "Multi-Shot") {
+            enemies.forEach(en => { if(en.alive) en.curHP -= (s.power + hero.int); });
+        }
+        if(s.name === "Holy Light" || s.name === "Lay on Hands" || s.name === "Vanish") {
+            hero.hp = Math.min(hero.maxHP, hero.hp + s.power + (hero.wis*2));
+        }
+        if(s.name === "Shadow Step") {
+            hero.x = Math.random()*800; hero.y = Math.random()*400;
+        }
+        if(s.name === "Mana Shield") {
+            hero.hp = Math.min(hero.maxHP, hero.hp + 20);
+            hero.mp = Math.min(hero.maxMP, hero.mp + 20);
+        }
+        if(s.name === "Dragon Piercer" || s.name === "Smite" || s.name === "Arcane Nova") {
+             let target = enemies.find(e => e.alive);
+             if(target) target.curHP -= (s.power * 3) + hero.int + hero.str;
+        }
+        updateUI();
+    }
+
+    function startCombat(en) {
+        gameState = "COMBAT";
+        let heroAtk = (hero.str * 0.7) + (hero.dex * 0.3);
+        if (hero.type === "Mage") heroAtk = hero.int * 0.9;
+        if (hero.type === "Archer") heroAtk = hero.dex * 0.9;
+
+        let fight = setInterval(() => {
+            en.curHP -= heroAtk;
+            hero.hp -= Math.max(1, en.atk - (hero.con / 2));
+
+            if (en.curHP <= 0) {
+                clearInterval(fight);
+                en.alive = false;
+                hero.xp += en.xp;
+                hero.gold += 10 + hero.floor;
+                addLog(`Slayed ${en.name}! +${en.xp} XP`, "regen-text");
+                if (hero.xp >= hero.nextXP) levelUp();
+                if (enemies.filter(e => e.alive).length === 0) {
+                    hero.floor++;
+                    spawnEnemies();
+                    addLog(`Floor ${hero.floor} reached. Checkpoint saved.`, "system-text");
+                }
+                gameState = "EXPLORE";
+            }
+
+            if (hero.hp <= 0) {
+                clearInterval(fight);
+                alert("The Spire consumes you. Floor reached: " + hero.floor);
+                location.reload();
+            }
+            updateUI();
+        }, 300);
     }
 
     function levelUp() {
         hero.level++;
         hero.xp = 0;
-        hero.nextXP = Math.floor(hero.nextXP * 1.5);
+        hero.nextXP += (hero.level * 50);
         gameState = "LEVEL_UP";
         document.getElementById('level-up-modal').style.display = 'block';
         const container = document.getElementById('skill-choices');
         container.innerHTML = '';
-        
-        let shuffled = [...allSkills].sort(() => 0.5 - Math.random()).slice(0, 3);
-        shuffled.forEach(s => {
+        let choices = [...allSkills].sort(() => 0.5 - Math.random()).slice(0, 3);
+        choices.forEach(s => {
             let div = document.createElement('div');
             div.className = 'skill-option';
             div.innerHTML = `<strong>${s.name}</strong><br>${s.desc}`;
@@ -144,44 +250,10 @@
         });
     }
 
-    function startCombat(en) {
-        gameState = "COMBAT";
-        let heroAtk = (hero.str * 0.5) + (hero.dex * 0.5);
-        if (hero.type === "Mage") heroAtk = hero.int * 0.8;
-
-        let fight = setInterval(() => {
-            // Battle logic
-            en.curHP -= heroAtk;
-            hero.hp -= Math.max(1, (en.minFloor * 2) - (hero.con / 5));
-
-            if (en.curHP <= 0) {
-                clearInterval(fight);
-                en.alive = false;
-                hero.xp += en.xp;
-                hero.gold += 10 + hero.floor;
-                addLog(`Slayed ${en.name}! +${en.xp} XP`, "regen-text");
-                if (hero.xp >= hero.nextXP) levelUp();
-                
-                if (enemies.filter(e => e.alive).length === 0) {
-                    hero.floor++;
-                    addLog(`Floor ${hero.floor} reached. Checkpoint saved!`, "system-text");
-                    spawnEnemies();
-                }
-                gameState = "EXPLORE";
-            }
-
-            if (hero.hp <= 0) {
-                clearInterval(fight);
-                alert("You died! The Spire claims you.");
-                location.reload();
-            }
-            updateUI();
-        }, 300);
-    }
-
-    // --- LOOP ---
     function updateUI() {
+        if(!hero.active) return;
         document.getElementById('stat-hp').innerText = `HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
+        document.getElementById('stat-mp').innerText = `MP: ${Math.floor(hero.mp)}/${hero.maxMP}`;
         document.getElementById('stat-xp').innerText = `XP: ${hero.xp}/${hero.nextXP}`;
         document.getElementById('stat-floor').innerText = `FLOOR: ${hero.floor}`;
         document.getElementById('stat-gold').innerText = `GOLD: ${hero.gold}`;
@@ -194,45 +266,43 @@
         document.getElementById('s-cha').innerText = hero.cha;
     }
 
-    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keydown', e => {
+        keys[e.code] = true;
+        if(e.key === "1") castSpell(1);
+        if(e.key === "2") castSpell(2);
+        if(e.key === "3") castSpell(3);
+    });
     window.addEventListener('keyup', e => keys[e.code] = false);
 
     function loop() {
         ctx.clearRect(0,0,900,500);
         if(gameState === "EXPLORE") {
-            if(keys['ArrowUp'] && hero.y > 0) hero.y -= hero.speed;
-            if(keys['ArrowDown'] && hero.y < 460) hero.y += hero.speed;
-            if(keys['ArrowLeft'] && hero.x > 0) hero.x -= hero.speed;
+            if(keys['ArrowUp'] && hero.y > 40) hero.y -= hero.speed;
+            if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
+            if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
             if(keys['ArrowRight'] && hero.x < 860) hero.x += hero.speed;
 
             enemies.forEach(en => {
                 if(!en.alive) return;
-                // Draw Monster
-                ctx.font = en.size + "px serif";
+                ctx.font = (30 + (hero.floor/2)) + "px serif";
                 ctx.fillText(en.sprite, en.x, en.y);
-                
-                // Collision
-                if(Math.abs(hero.x - en.x) < 30 && Math.abs(hero.y - en.y) < 30) {
-                    startCombat(en);
-                }
+                if(Math.abs(hero.x - en.x) < 30 && Math.abs(hero.y - en.y) < 30) startCombat(en);
             });
         }
-
         if(hero.active) {
             ctx.font = "40px serif";
             ctx.fillText(hero.sprite, hero.x, hero.y);
         }
-
         requestAnimationFrame(loop);
     }
 
-    // Regen every 2s
     setInterval(() => {
-        if(gameState === "EXPLORE" && hero.hp < hero.maxHP) {
-            hero.hp = Math.min(hero.maxHP, hero.hp + (hero.wis / 5));
+        if(gameState === "EXPLORE" && hero.active) {
+            hero.hp = Math.min(hero.maxHP, hero.hp + (hero.wis / 10));
+            hero.mp = Math.min(hero.maxMP, hero.mp + (hero.int / 10));
             updateUI();
         }
-    }, 2000);
+    }, 1000);
 
     loop();
 </script>
