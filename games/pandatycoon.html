@@ -1,63 +1,940 @@
+None selected
+
+Skip to content
+Using Gmail with screen readers
+
+Conversations
+32% of 100 GB used
+Terms · Privacy · Program Policies
+Last account activity: 0 minutes ago
+Currently being used in 2 other locations · Details
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Panda Clicker: Golden Edition</title>
-    <style>
-        :root {
-            --bg-gradient: linear-gradient(135deg, #f5f5dc, #d4e157);
-            --box-bg: rgba(255, 255, 255, 0.9);
-            --text-main: #2e7d32;
-            --border-color: #558b2f;
-            --btn-bg: #689f38;
-            --btn-hover: #33691e;
-        }
+  <meta charset="UTF-8">
+  <title>Panda Dungeon – Infinite Rooms (3 Classes + Panda Armor)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game" width="960" height="540"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-        [data-theme="dark"] {
-            --bg-gradient: linear-gradient(135deg, #1a1a1a, #2e3410);
-            --box-bg: rgba(30, 30, 30, 0.95);
-            --text-main: #a2d149;
-            --border-color: #a2d149;
-            --btn-bg: #558b2f;
-            --btn-hover: #7db343;
-        }
+const W = canvas.width;
+const H = canvas.height;
 
-        nav {
-            position: fixed; top: 0; left: 0; width: 100%;
-            background: #33691e; padding: 10px;
-            display: flex; justify-content: center; gap: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 1000;
-        }
-        nav a {
-            color: white; text-decoration: none; font-weight: bold;
-            font-size: 14px; border: 1px solid white; padding: 5px 15px;
-            border-radius: 20px; transition: 0.3s;
-        }
-        
-        #theme-toggle {
-            position: fixed; top: 12px; right: 20px; z-index: 1001;
-            cursor: pointer; background: #f9a825; border: none;
-            padding: 5px 10px; border-radius: 5px; font-weight: bold;
-        }
+// Input
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-        body { 
-            text-align: center; font-family: 'Arial Rounded MT Bold', sans-serif; 
-            background: var(--bg-gradient); 
-            height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center;
-            overflow: hidden; transition: background 0.5s ease;
-        }
-        
-        #game-box { 
-            background: var(--box-bg); padding: 30px; border-radius: 30px; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.4); width: 440px; border: 4px solid var(--border-color);
-            margin-top: 50px; position: relative; transition: all 0.5s ease;
-        }
+// Game state
+let gameState = "classSelect";
+let currentClass = "swordsman";
+let selectedClassIndex = 0;
 
-        h1 { color: var(--text-main); margin-bottom: 10px; }
-        .stats-display { font-size: 48px; color: var(--text-main); font-weight: bold; }
-        .golden-stats { color: #f9a825; font-size: 18px; margin-bottom: 15px; font-weight: bold; }
-        
-        #panda-btn { width: 150px; cursor: pointer; transition: transform 0.05s; user-select: none; }
-        #panda-btn:active { transform: scale(0.9); }
+// Player
+const player = {
+  x: W/2,
+  y: H*0.75,
+  w: 32,
+  h: 48,
+  speed: 3,
+  hp: 100,
+  maxHp: 100,
+  facing: 1,
+  attackCooldown: 0,
+  attackType: null,
+  attackTimer: 0,
+  slashDir: "horizontal",
+  currentMoveIndex: 0
+};
 
-        /* --- Tabs --- */
+// Panda
+const panda = {
+  x: W/2 + 40,
+  y: H*0.8,
+  w: 28,
+  h: 32,
+  mood: "happy",
+  moodTimer: 0,
+  healTimer: 0,
+  petCooldown: 0,
+  hasArmor: false
+};
+
+// Classes
+const classes = [
+  { id: "swordsman", name: "Swordsman", desc: "3 melee slashes (up / horizontal / down)" },
+  { id: "archer", name: "Archer", desc: "Straight / High Arc / Quick red-line arrows" },
+  { id: "spearman", name: "Spearman", desc: "Long Thrust / Short Jab / Wide Sweep spear" }
+];
+
+// Projectiles
+const projectiles = [];
+
+// Enemy generator
+function makeEnemy(x, y, type, difficulty) {
+  let baseW = 28, baseH = 28, baseHp = 25, baseSpeed = 1.0;
+
+  if (type === "skeleton") { baseHp = 40; baseSpeed = 1.4; }
+  if (type === "boss") { baseW = 64; baseH = 64; baseHp = 200; baseSpeed = 0.8; }
+
+  return {
+    x, y,
+    w: baseW,
+    h: baseH,
+    type,
+    hp: baseHp * difficulty,
+    speed: baseSpeed * (0.8 + difficulty * 0.2),
+    alive: true
+  };
+}
+
+function makeChest(x, y, difficulty) {
+  return {
+    x, y,
+    w: 32,
+    h: 24,
+    opened: false,
+    healAmount: 20 + Math.floor(10 * difficulty)
+  };
+}
+
+// Infinite room generator
+function makeRoom(index) {
+  const difficulty = 1 + index * 0.15;
+  const isBoss = (index > 0 && index % 5 === 0);
+
+  let enemies = [];
+  let chest = null;
+
+  if (isBoss) {
+    enemies.push(makeEnemy(W/2, H*0.3, "boss", difficulty));
+    chest = makeChest(W/2, H*0.25, difficulty);
+  } else {
+    const enemyCount = 2 + Math.floor(index / 2);
+    for (let i = 0; i < enemyCount; i++) {
+      const type = Math.random() < 0.4 + index * 0.02 ? "skeleton" : "slime";
+      const ex = W/2 + (Math.random() * 300 - 150);
+      const ey = H*0.35 + (Math.random() * 80 - 40);
+      enemies.push(makeEnemy(ex, ey, type, difficulty));
+    }
+    chest = makeChest(W/2 + (Math.random() * 200 - 100), H*0.3, difficulty);
+  }
+
+  return {
+    index,
+    enemies,
+    chest,
+    isBoss,
+    cleared: false,
+    difficulty
+  };
+}
+
+let currentRoomIndex = 0;
+let currentRoom = makeRoom(currentRoomIndex);
+
+// Utility
+function rectsOverlap(a, b) {
+  return (
+    a.x - a.w/2 < b.x + b.w/2 &&
+    a.x + a.w/2 > b.x - b.w/2 &&
+    a.y - a.h/2 < b.y + b.h/2 &&
+    a.y + a.h/2 > b.y - b.h/2
+  );
+}
+
+// Class select
+function handleClassSelectKeyboard() {
+  if (keys["arrowup"] || keys["w"]) {
+    selectedClassIndex = (selectedClassIndex + classes.length - 1) % classes.length;
+    keys["arrowup"] = keys["w"] = false;
+  }
+  if (keys["arrowdown"] || keys["s"]) {
+    selectedClassIndex = (selectedClassIndex + 1) % classes.length;
+    keys["arrowdown"] = keys["s"] = false;
+  }
+
+  if (keys["1"]) { selectedClassIndex = 0; confirmClassSelection(); }
+  if (keys["2"]) { selectedClassIndex = 1; confirmClassSelection(); }
+  if (keys["3"]) { selectedClassIndex = 2; confirmClassSelection(); }
+}
+
+function confirmClassSelection() {
+  currentClass = classes[selectedClassIndex].id;
+  startGame();
+}
+
+function startGame() {
+  gameState = "playing";
+  player.x = W/2;
+  player.y = H*0.75;
+  player.hp = player.maxHp;
+  player.attackCooldown = 0;
+  player.attackType = null;
+  player.attackTimer = 0;
+  player.slashDir = "horizontal";
+  player.currentMoveIndex = 0;
+
+  panda.x = player.x + 40;
+  panda.y = player.y + 20;
+  panda.mood = "happy";
+  panda.moodTimer = 0;
+  panda.healTimer = 0;
+  panda.petCooldown = 0;
+  panda.hasArmor = false;
+
+  projectiles.length = 0;
+
+  currentRoomIndex = 0;
+  currentRoom = makeRoom(currentRoomIndex);
+}
+
+// Player movement + keyboard attacks
+function updatePlayerKeyboard() {
+  let dx = 0, dy = 0;
+  if (keys["a"] || keys["arrowleft"]) dx -= 1;
+  if (keys["d"] || keys["arrowright"]) dx += 1;
+  if (keys["w"] || keys["arrowup"]) dy -= 1;
+  if (keys["s"] || keys["arrowdown"]) dy += 1;
+
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len; dy /= len;
+
+  player.x += dx * player.speed;
+  player.y += dy * player.speed;
+
+  if (dx < 0) player.facing = -1;
+  if (dx > 0) player.facing = 1;
+
+  const margin = 60;
+  player.x = Math.max(margin, Math.min(W - margin, player.x));
+  player.y = Math.max(H*0.25, Math.min(H*0.85, player.y));
+
+  if (player.attackCooldown > 0) player.attackCooldown--;
+  if (player.attackTimer > 0) player.attackTimer--;
+  if (player.attackTimer <= 0) player.attackType = null;
+
+  // Petting
+  if (keys["p"]) tryPetPanda();
+
+  if (currentClass === "swordsman") {
+    if (player.attackCooldown <= 0) {
+      if (keys["z"]) triggerSwordsmanSlash("slashH");
+      if (keys["x"]) triggerSwordsmanSlash("slashUp");
+      if (keys["c"]) triggerSwordsmanSlash("slashDown");
+    }
+  } else if (currentClass === "archer") {
+    if (player.attackCooldown <= 0) {
+      if (keys["j"]) triggerArcherMove(0);
+      if (keys["k"]) triggerArcherMove(1);
+      if (keys["l"]) triggerArcherMove(2);
+    }
+  } else if (currentClass === "spearman") {
+    if (player.attackCooldown <= 0) {
+      if (keys["j"]) triggerSpearmanMove(0);
+      if (keys["k"]) triggerSpearmanMove(1);
+      if (keys["l"]) triggerSpearmanMove(2);
+    }
+  }
+}
+
+// Petting
+function tryPetPanda() {
+  if (panda.petCooldown > 0) return;
+
+  const d = Math.hypot(player.x - panda.x, player.y - panda.y);
+  if (d < 60) {
+    panda.mood = "purr";
+    panda.moodTimer = 40;
+    panda.petCooldown = 180;
+
+    let heal = 3;
+    if (panda.hasArmor) heal += 1;
+
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+  }
+}
+
+// Swordsman
+function triggerSwordsmanSlash(type) {
+  player.attackType = type;
+  player.attackTimer = 12;
+  player.attackCooldown = 18;
+
+  if (type === "slashDown") panda.mood = "excited";
+  else if (type === "slashUp") panda.mood = "alert";
+  else panda.mood = "happy";
+  panda.moodTimer = 30;
+
+  const range = 80;
+  const arcHeight = 60;
+
+  currentRoom.enemies.forEach(e => {
+    if (!e.alive) return;
+    const inFront = (player.facing === 1 && e.x > player.x) || (player.facing === -1 && e.x < player.x);
+    const distX = Math.abs(e.x - player.x);
+    const distY = Math.abs(e.y - player.y);
+    if (inFront && distX < range && distY < arcHeight) {
+      let dmg = 0;
+      if (type === "slashH") dmg = 20 * currentRoom.difficulty;
+      if (type === "slashUp") dmg = 15 * currentRoom.difficulty;
+      if (type === "slashDown") dmg = 25 * currentRoom.difficulty;
+      e.hp -= dmg;
+      if (e.hp <= 0) e.alive = false;
+    }
+  });
+}
+
+// Archer projectiles
+function spawnArrow(x, y, vx, vy, typeIndex) {
+  projectiles.push({
+    x, y,
+    vx, vy,
+    life: 90,
+    typeIndex
+  });
+}
+
+function triggerArcherMove(moveIndex) {
+  player.attackCooldown = 18;
+  player.attackTimer = 10;
+  player.attackType = "archer";
+
+  const baseSpeed = 7;
+  let dirX = player.facing;
+  let dirY = 0;
+
+  if (moveIndex === 0) {
+    dirX = player.facing;
+    dirY = 0;
+  } else if (moveIndex === 1) {
+    dirX = player.facing * 0.7;
+    dirY = -0.7;
+  } else if (moveIndex === 2) {
+    dirX = player.facing;
+    dirY = 0;
+  }
+
+  const len = Math.hypot(dirX, dirY) || 1;
+  dirX /= len; dirY /= len;
+
+  let speed = baseSpeed;
+  if (moveIndex === 1) speed = 5;
+  if (moveIndex === 2) speed = 9;
+
+  spawnArrow(player.x, player.y - 10, dirX * speed, dirY * speed, moveIndex);
+
+  panda.mood = "alert";
+  panda.moodTimer = 30;
+}
+
+function updateProjectiles() {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+
+    if (p.typeIndex === 1) {
+      p.vy += 0.15;
+    }
+
+    if (p.life <= 0 || p.x < 0 || p.x > W || p.y < 0 || p.y > H) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+
+    const hitBoxP = { x: p.x, y: p.y, w: 8, h: 8 };
+    for (let j = 0; j < currentRoom.enemies.length; j++) {
+      const e = currentRoom.enemies[j];
+      if (!e.alive) continue;
+      const hitBoxE = { x: e.x, y: e.y, w: e.w, h: e.h };
+      if (rectsOverlap(hitBoxP, hitBoxE)) {
+        let dmg = 15 * currentRoom.difficulty;
+        if (p.typeIndex === 0) dmg = 18 * currentRoom.difficulty;
+        if (p.typeIndex === 1) dmg = 20 * currentRoom.difficulty;
+        if (p.typeIndex === 2) dmg = 12 * currentRoom.difficulty;
+        e.hp -= dmg;
+        if (e.hp <= 0) e.alive = false;
+        projectiles.splice(i, 1);
+        panda.mood = "excited";
+        panda.moodTimer = 30;
+        break;
+      }
+    }
+  }
+}
+
+// Spearman
+function triggerSpearmanMove(moveIndex) {
+  player.attackCooldown = 18;
+  player.attackTimer = 12;
+  player.attackType = "spearman";
+  player.currentMoveIndex = moveIndex;
+
+  panda.mood = "brave";
+  panda.moodTimer = 30;
+
+  const dir = player.facing;
+  let hitW = 0, hitH = 0, offsetX = 0, offsetY = 0, dmg = 0;
+
+  if (moveIndex === 0) {
+    hitW = 80;
+    hitH = 30;
+    offsetX = dir * 50;
+    offsetY = 0;
+    dmg = 22 * currentRoom.difficulty;
+  } else if (moveIndex === 1) {
+    hitW = 50;
+    hitH = 20;
+    offsetX = dir * 35;
+    offsetY = 0;
+    dmg = 14 * currentRoom.difficulty;
+    player.attackCooldown = 10;
+  } else if (moveIndex === 2) {
+    hitW = 70;
+    hitH = 60;
+    offsetX = dir * 40;
+    offsetY = 10;
+    dmg = 18 * currentRoom.difficulty;
+  }
+
+  const hitBox = {
+    x: player.x + offsetX,
+    y: player.y + offsetY,
+    w: hitW,
+    h: hitH
+  };
+
+  currentRoom.enemies.forEach(e => {
+    if (!e.alive) return;
+    const eBox = { x: e.x, y: e.y, w: e.w, h: e.h };
+    if (rectsOverlap(hitBox, eBox)) {
+      e.hp -= dmg;
+      if (e.hp <= 0) e.alive = false;
+    }
+  });
+}
+
+// Panda AI
+function updatePanda() {
+  const targetX = player.x - player.facing * 40;
+  const targetY = player.y + 20;
+
+  let dx = targetX - panda.x;
+  let dy = targetY - panda.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  dx /= dist; dy /= dist;
+
+  if (dist > 10) {
+    panda.x += dx * 2.2;
+    panda.y += dy * 2.2;
+  }
+
+  if (panda.moodTimer > 0) {
+    panda.moodTimer--;
+    if (panda.moodTimer <= 0) panda.mood = "happy";
+  }
+
+  if (panda.petCooldown > 0) panda.petCooldown--;
+
+  panda.healTimer++;
+  if (panda.healTimer >= 600) {
+    panda.healTimer = 0;
+
+    let heal = 5;
+    if (panda.hasArmor) heal += 1;
+
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+    panda.mood = "excited";
+    panda.moodTimer = 40;
+  }
+}
+
+// Enemies
+function updateEnemies() {
+  let allDead = true;
+
+  currentRoom.enemies.forEach(e => {
+    if (!e.alive) return;
+    allDead = false;
+
+    let dx = player.x - e.x;
+    let dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    dx /= dist; dy /= dist;
+
+    e.x += dx * e.speed;
+    e.y += dy * e.speed;
+
+    const hitBoxE = { x: e.x, y: e.y, w: e.w, h: e.h };
+    const hitBoxP = { x: player.x, y: player.y, w: player.w, h: player.h };
+
+    if (rectsOverlap(hitBoxE, hitBoxP)) {
+      player.hp -= (e.type === "boss" ? 1.2 : 0.4) * currentRoom.difficulty;
+      if (player.hp <= 0) gameState = "dead";
+    }
+  });
+
+  if (allDead) currentRoom.cleared = true;
+}
+
+// Chest + room progression
+function updateChestAndRoom() {
+  const chest = currentRoom.chest;
+  if (chest && !chest.opened) {
+    const hitBoxC = { x: chest.x, y: chest.y, w: chest.w, h: chest.h };
+    const hitBoxP = { x: player.x, y: player.y, w: player.w, h: player.h };
+
+    // Chest interaction
+    if (rectsOverlap(hitBoxC, hitBoxP) && keys["e"]) {
+      chest.opened = true;
+
+      // Heal from chest
+      player.hp = Math.min(player.maxHp, player.hp + chest.healAmount);
+
+      // 1% chance to drop panda armor
+      if (!panda.hasArmor && Math.random() < 0.01) {
+        panda.hasArmor = true;
+        panda.mood = "excited";
+        panda.moodTimer = 80;
+      }
+    }
+  }
+
+  // Move to next room
+  if (currentRoom.cleared && player.y <= H * 0.26) {
+    currentRoomIndex++;
+    currentRoom = makeRoom(currentRoomIndex);
+
+    player.x = W / 2;
+    player.y = H * 0.75;
+
+    panda.x = player.x + 40;
+    panda.y = player.y + 20;
+
+    projectiles.length = 0;
+  }
+}
+
+// Drawing
+function drawBackground() {
+  const grad = ctx.createLinearGradient(0, H, 0, 0);
+  grad.addColorStop(0, "#222");
+  grad.addColorStop(1, "#444");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#333";
+  ctx.fillRect(0, 0, 80, H);
+  ctx.fillRect(W - 80, 0, 80, H);
+
+  ctx.fillStyle = "#2a2a2a";
+  ctx.fillRect(80, 0, W - 160, H * 0.25);
+
+  ctx.fillStyle = currentRoom.cleared ? "#885522" : "#552211";
+  ctx.fillRect(W / 2 - 60, H * 0.25 - 40, 120, 40);
+}
+
+function drawPlayer() {
+  ctx.fillStyle = "#00aaff";
+  ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+
+  ctx.fillStyle = "#ffe0c0";
+  ctx.fillRect(player.x - 12, player.y - player.h/2 - 18, 24, 18);
+
+  // Swordsman slashes
+  if (currentClass === "swordsman" && player.attackType) {
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    const dir = player.facing;
+
+    if (player.attackType === "slashH") {
+      ctx.moveTo(player.x, player.y - 5);
+      ctx.lineTo(player.x + dir * 50, player.y - 5);
+    } else if (player.attackType === "slashUp") {
+      ctx.moveTo(player.x + dir * 10, player.y - 10);
+      ctx.lineTo(player.x + dir * 30, player.y - 50);
+    } else if (player.attackType === "slashDown") {
+      ctx.moveTo(player.x + dir * 10, player.y + 5);
+      ctx.lineTo(player.x + dir * 40, player.y + 35);
+    }
+
+    ctx.stroke();
+  }
+
+  // Spearman spear
+  if (currentClass === "spearman" && player.attackType === "spearman") {
+    const dir = player.facing;
+    const moveIndex = player.currentMoveIndex;
+
+    ctx.strokeStyle = "#ffeeaa";
+    ctx.fillStyle = "#ffeeaa";
+    ctx.lineWidth = 4;
+
+    let startX = player.x;
+    let startY = player.y - 5;
+    let endX = startX + dir * 60;
+    let endY = startY;
+
+    if (moveIndex === 0) endX = startX + dir * 70;
+    if (moveIndex === 1) endX = startX + dir * 45;
+    if (moveIndex === 2) endY = startY + 20;
+
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Spear tip
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - dir * 8, endY - 4);
+    ctx.lineTo(endX - dir * 8, endY + 4);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawPanda() {
+  // Body
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.ellipse(panda.x, panda.y, panda.w/2, panda.h/2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = "#000000";
+  ctx.beginPath();
+  ctx.arc(panda.x - 5, panda.y - 4, 3, 0, Math.PI * 2);
+  ctx.arc(panda.x + 5, panda.y - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ears (drawn first if no armor)
+  if (!panda.hasArmor) {
+    ctx.beginPath();
+    ctx.arc(panda.x - 8, panda.y - panda.h/2, 6, 0, Math.PI * 2);
+    ctx.arc(panda.x + 8, panda.y - panda.h/2, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Knight Helmet (silver)
+  if (panda.hasArmor) {
+    // Helmet dome
+    ctx.fillStyle = "#cccccc";
+    ctx.beginPath();
+    ctx.arc(panda.x, panda.y - panda.h/2 - 2, 12, Math.PI, 0);
+    ctx.fill();
+
+    // Ear holes (dark interior)
+    ctx.fillStyle = "#111111";
+    ctx.beginPath();
+    ctx.arc(panda.x - 8, panda.y - panda.h/2 - 6, 6, 0, Math.PI * 2);
+    ctx.arc(panda.x + 8, panda.y - panda.h/2 - 6, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Panda ears OVER helmet
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.arc(panda.x - 8, panda.y - panda.h/2 - 6, 6, 0, Math.PI * 2);
+    ctx.arc(panda.x + 8, panda.y - panda.h/2 - 6, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Visor band
+    ctx.fillStyle = "#bbbbbb";
+    ctx.fillRect(panda.x - 12, panda.y - panda.h/2 + 2, 24, 5);
+
+    // Visor slit
+    ctx.fillStyle = "#333333";
+    ctx.fillRect(panda.x - 5, panda.y - panda.h/2 + 3, 10, 2);
+  }
+
+  // Mood indicator
+  ctx.fillStyle = "#ff66aa";
+  if (panda.mood === "happy") ctx.fillRect(panda.x - 6, panda.y - panda.h/2 - 10, 12, 4);
+  if (panda.mood === "excited") ctx.fillRect(panda.x - 8, panda.y - panda.h/2 - 12, 16, 6);
+  if (panda.mood === "purr") ctx.fillRect(panda.x - 10, panda.y - panda.h/2 - 14, 20, 6);
+  if (panda.mood === "brave") ctx.fillRect(panda.x - 10, panda.y - panda.h/2 - 10, 20, 5);
+  if (panda.mood === "alert") ctx.fillRect(panda.x - 5, panda.y - panda.h/2 - 14, 10, 3);
+}
+
+function drawEnemies() {
+  currentRoom.enemies.forEach(e => {
+    if (!e.alive) return;
+
+    if (e.type === "slime") {
+      ctx.fillStyle = "#33dd66";
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y, e.w/2, e.h/2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (e.type === "skeleton") {
+      ctx.fillStyle = "#dddddd";
+      ctx.fillRect(e.x - e.w/2, e.y - e.h/2, e.w, e.h);
+    } else if (e.type === "boss") {
+      ctx.fillStyle = "#aa2222";
+      ctx.fillRect(e.x - e.w/2, e.y - e.h/2, e.w, e.h);
+
+      // Eyes
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(e.x - 10, e.y - 10, 6, 6);
+      ctx.fillRect(e.x + 4, e.y - 10, 6, 6);
+    }
+  });
+}
+
+function drawChest() {
+  const chest = currentRoom.chest;
+  if (!chest) return;
+
+  ctx.fillStyle = chest.opened ? "#aa8844" : "#ccaa55";
+  ctx.fillRect(chest.x - chest.w/2, chest.y - chest.h/2, chest.w, chest.h);
+}
+
+function drawProjectiles() {
+  ctx.strokeStyle = "#ff3333";
+  ctx.lineWidth = 2;
+
+  projectiles.forEach(p => {
+    const len = 18;
+    const mag = Math.hypot(p.vx, p.vy) || 1;
+    const dx = p.vx / mag;
+    const dy = p.vy / mag;
+
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - dx * len, p.y - dy * len);
+    ctx.stroke();
+  });
+}
+
+function drawUI() {
+  const barW = 200, barH = 16;
+  const hpRatio = player.hp / player.maxHp;
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(20, 20, barW, barH);
+
+  ctx.fillStyle = "#ff3333";
+  ctx.fillRect(20, 20, barW * hpRatio, barH);
+
+  ctx.strokeStyle = "#fff";
+  ctx.strokeRect(20, 20, barW, barH);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "14px sans-serif";
+  ctx.fillText("HP: " + Math.round(player.hp) + " / " + player.maxHp, 24, 33);
+
+  ctx.fillText("Room: " + (currentRoomIndex + 1), W - 120, 30);
+  ctx.fillText("Class: " + currentClass, W - 220, 30);
+
+  ctx.fillText(
+    "Move: WASD/Arrows | Swordsman: Z/X/C | Archer/Spear: J/K/L | Pet: P | Chest: E",
+    20,
+    H - 20
+  );
+}
+
+function drawClassSelect() {
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "32px sans-serif";
+  const title = "Choose Your Class";
+  ctx.fillText(title, W/2 - ctx.measureText(title).width/2, 100);
+
+  ctx.font = "18px sans-serif";
+  let y = 180;
+
+  classes.forEach((c, i) => {
+    const selected = (i === selectedClassIndex);
+
+    ctx.fillStyle = selected ? "#00ffcc" : "#ffffff";
+    ctx.fillText(c.name, W/2 - 140, y);
+
+    ctx.fillStyle = "#aaaaaa";
+    ctx.fillText(c.desc, W/2 - 140, y + 20);
+
+    y += 70;
+  });
+
+  ctx.fillStyle = "#888888";
+  ctx.fillText("Keyboard: 1/2/3 or W/S + Enter", W/2 - 160, H - 80);
+  ctx.fillText("Controller: Up/Down + A to confirm", W/2 - 170, H - 50);
+}
+
+function drawEndScreen(text, sub) {
+  ctx.fillStyle = "rgba(0,0,0,0.8)";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "36px sans-serif";
+  ctx.fillText(text, W/2 - ctx.measureText(text).width/2, H/2 - 20);
+
+  ctx.font = "18px sans-serif";
+  ctx.fillText(sub, W/2 - ctx.measureText(sub).width/2, H/2 + 20);
+}
+
+let gamepad = null;
+let classSelectStickCooldown = 0;
+
+window.addEventListener("gamepadconnected", (e) => {
+  gamepad = navigator.getGamepads()[e.gamepad.index];
+});
+
+window.addEventListener("gamepaddisconnected", () => {
+  gamepad = null;
+});
+
+function getControllerInput() {
+  if (!gamepad) return;
+
+  gamepad = navigator.getGamepads()[gamepad.index];
+  if (!gamepad) return;
+
+  const axes = gamepad.axes;
+  const buttons = gamepad.buttons;
+
+  const lx = axes[0] || 0;
+  const ly = axes[1] || 0;
+
+  const rx = axes[2] || 0;
+  const ry = axes[3] || 0;
+
+  const dz = 0.25;
+  const moveX = Math.abs(lx) > dz ? lx : 0;
+  const moveY = Math.abs(ly) > dz ? ly : 0;
+
+  const btnA = buttons[0]?.pressed;
+  const btnX = buttons[2]?.pressed;
+  const btnY = buttons[3]?.pressed;
+  const dpadUp = buttons[12]?.pressed;
+  const dpadDown = buttons[13]?.pressed;
+
+  // Class select
+  if (gameState === "classSelect") {
+    if (classSelectStickCooldown > 0) classSelectStickCooldown--;
+
+    const navUp = (dpadUp || ly < -0.5);
+    const navDown = (dpadDown || ly > 0.5);
+
+    if (navUp && classSelectStickCooldown <= 0) {
+      selectedClassIndex = (selectedClassIndex + classes.length - 1) % classes.length;
+      classSelectStickCooldown = 15;
+    }
+    if (navDown && classSelectStickCooldown <= 0) {
+      selectedClassIndex = (selectedClassIndex + 1) % classes.length;
+      classSelectStickCooldown = 15;
+    }
+
+    if (btnA) confirmClassSelection();
+    return;
+  }
+
+  if (gameState !== "playing") return;
+
+  // Movement
+  player.x += moveX * player.speed;
+  player.y += moveY * player.speed;
+
+  if (moveX < 0) player.facing = -1;
+  if (moveX > 0) player.facing = 1;
+
+  const margin = 60;
+  player.x = Math.max(margin, Math.min(W - margin, player.x));
+  player.y = Math.max(H*0.25, Math.min(H*0.85, player.y));
+
+  // Right stick selects move for Archer/Spear
+  const rdz = 0.3;
+  let sx = Math.abs(rx) > rdz ? rx : 0;
+  let sy = Math.abs(ry) > rdz ? ry : 0;
+
+  if (currentClass === "archer" || currentClass === "spearman") {
+    if (sy < -0.5) player.currentMoveIndex = 1;
+    else if (sy > 0.5) player.currentMoveIndex = 2;
+    else if (Math.abs(sx) > 0.5) player.currentMoveIndex = 0;
+  }
+
+  // Petting
+  if (btnY) tryPetPanda();
+
+  // Chest interact
+  keys["e"] = btnA;
+
+  // Attack
+  if (btnX && player.attackCooldown <= 0) {
+    if (currentClass === "swordsman") {
+      let type = "slashH";
+      if (sy < -0.5) type = "slashUp";
+      else if (sy > 0.5) type = "slashDown";
+      triggerSwordsmanSlash(type);
+    } else if (currentClass === "archer") {
+      triggerArcherMove(player.currentMoveIndex);
+    } else if (currentClass === "spearman") {
+      triggerSpearmanMove(player.currentMoveIndex);
+    }
+  }
+}
+
+function update() {
+  getControllerInput();
+
+  if (gameState === "classSelect") {
+    handleClassSelectKeyboard();
+  } else if (gameState === "playing") {
+    updatePlayerKeyboard();
+    updatePanda();
+    updateEnemies();
+    updateChestAndRoom();
+    updateProjectiles();
+  }
+}
+
+function render() {
+  if (gameState === "classSelect") {
+    drawClassSelect();
+  } else {
+    drawBackground();
+    drawChest();
+    drawEnemies();
+    drawPlayer();
+    drawPanda();
+    drawProjectiles();
+    drawUI();
+
+    if (gameState === "dead") {
+      drawEndScreen("You Fell in the Dungeon", "Your panda cub whimpers softly...");
+    }
+  }
+}
+
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
+Dungeon rpg.html
+Zoomed out of item.
