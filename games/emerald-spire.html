@@ -1,98 +1,83 @@
-<div id="ui-layer">
-    <div>
-        <div id="char-name" style="color:gold">SELECT CLASS</div>
-        <div class="hp-bar" id="stat-hp">HP: --</div>
-        <div class="mp-bar" id="stat-mp">MP: --</div>
-    </div>
-    <div style="font-size: 12px;">
-        <div>STR:<span id="s-str">--</span> INT:<span id="s-int">--</span> CON:<span id="s-con">--</span></div>
-        <div id="stat-xp" style="color:#4444ff">XP: 0/100</div>
-    </div>
-    <div id="save-controls">
-        <div style="color:#00ff41; font-weight:bold; margin-bottom:5px;">FLOOR: <span id="floor-num">1</span></div>
-        <div id="class-select" style="display:flex; gap:2px;">
-            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Mage', '#00d4ff')">MAGE</button>
-            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Pala', '#fff')">PALA</button>
-            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Arch', '#ffaa00')">ARCHER</button>
-        </div>
-        <div id="post-select-btns" style="display:none;">
-            <button class="btn" style="width:70px" onclick="openSaveMenu()">SAVE</button>
-            <button class="btn" style="width:70px" onclick="openLoadMenu()">LOAD</button>
-        </div>
-    </div>
-</div>
+// --- NEW VARIABLE ---
+let deathGhost = null; // Stores {x, y, xpBonus}
 
-<script>
-    // ... (Keep existing Audio Engine and Variables) ...
-    
-    // NEW ARCHER SPELL
-    const SPELL_DATA = {
-        'FIRE': { name: 'Fireball', cost: 12, req: 1, desc: 'Reliable Magic Dmg' },
-        'SNIPE': { name: 'Power Shot', cost: 15, req: 1, desc: 'Huge Physical Dmg' }, // Archer's starting spell
-        'ICE': { name: 'Ice Bolt', cost: 10, req: 1, desc: 'Dmg + Weaken Atk' },
-        'DRAIN': { name: 'Lifesteal', cost: 20, req: 3, desc: 'Steal HP' },
-        'SHIELD': { name: 'Divine Shield', cost: 25, req: 3, desc: 'Block Next' },
-        'METEOR': { name: 'Meteor', cost: 45, req: 6, desc: 'Massive Dmg' }
-    };
-
-    function pickClass(cls, color) {
-        // Safe Audio Resume
-        if (audio && audio.state === 'suspended') {
-            audio.resume().catch(e => console.log("Audio blocked until interaction."));
-        }
-
-        hero.type = cls; 
-        hero.color = color; 
-        hero.active = true;
+function handleDeath() {
+    if (checkpoint) {
+        // Save death location before restoring hero
+        deathGhost = { 
+            x: hero.x, 
+            y: hero.y, 
+            xpBonus: Math.floor(hero.nextXP * 0.25) 
+        };
         
-        // Hide class select, show Save/Load
-        document.getElementById('class-select').style.display = 'none';
-        document.getElementById('post-select-btns').style.display = 'block';
+        alert(`SOUL FRAGMENT LEFT AT FLOOR ${hero.level}. Respawning...`);
         
-        if(cls === 'Mage') { 
-            hero.int=45; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; 
-            mySpells = ['FIRE']; 
-        } else if(cls === 'Arch') {
-            hero.str=35; hero.speed=7; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80;
-            mySpells = ['SNIPE'];
-        } else { 
-            hero.str=25; hero.con=30; hero.hp=180; hero.maxHP=180; hero.mp=60; hero.maxMP=60; 
-            mySpells = [];
-        }
-
-        gameState = "EXPLORE"; 
-        spawnFloor(); 
+        hero = JSON.parse(JSON.stringify(checkpoint.hero));
+        mySpells = [...checkpoint.mySpells];
+        
+        document.getElementById('battle-overlay').style.display = 'none';
+        document.getElementById('battle-overlay').style.pointerEvents = 'auto';
+        monsterStunned = false;
+        gameState = "EXPLORE";
+        spawnFloor();
         updateUI();
-        
-        // Confirm with sound
-        try { playNote(440, 'square', 0.2); } catch(e) {}
+    } else {
+        alert("NO CHECKPOINT REACHED. SOUL LOST.");
+        location.reload();
     }
+}
 
-    // UPDATE PLAYER ACTION TO INCLUDE SNIPE
-    function playerAction(type) {
-        let dmg = 0;
-        if (type === 'ATTACK') {
-            if (Math.random() < 0.05) {
-                try { playNote(150, 'sawtooth', 0.1); } catch(e) {}
-                document.getElementById('battle-info').innerText = `MISSED!`;
-            } else {
-                try { playNote(600, 'sine', 0.1); } catch(e) {}
-                // Archer gets a slightly better physical multiplier (0.9 vs 0.7)
-                let mult = (hero.type === 'Arch') ? 0.9 : 0.7;
-                dmg = Math.floor(hero.str * mult) + Math.floor(Math.random() * 5);
-                currentEnemy.hp -= dmg;
-                spawnParticle(450, 150, `-${dmg}`, "white");
-                document.getElementById('battle-info').innerText = `You hit for ${dmg}!`;
+function loop() {
+    frameCount++; ctx.save();
+    if (shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
+    ctx.fillStyle = "black"; ctx.fillRect(0, 0, 900, 500);
+    
+    if(gameState === "EXPLORE") {
+        // ... [Keep movement logic] ...
+        if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
+        if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
+        if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
+        if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
+
+        // RENDER & COLLECT GHOST
+        if (deathGhost) {
+            let flicker = 0.3 + 0.3 * Math.sin(frameCount * 0.2);
+            ctx.globalAlpha = flicker;
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(deathGhost.x, deathGhost.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Check Collection
+            if (Math.abs(hero.x - deathGhost.x) < 20 && Math.abs(hero.y - deathGhost.y) < 20) {
+                hero.xp += deathGhost.xpBonus;
+                addLog(`RECOVERED SOUL: +${deathGhost.xpBonus} XP`, "cyan");
+                spawnParticle(hero.x, hero.y, "SOUL RECLAIMED", "white");
+                playNote(880, 'sine', 0.4);
+                deathGhost = null; // Ghost is gone until next death
+                updateUI();
             }
-        } else if (type === 'SNIPE') {
-            const s = SPELL_DATA['SNIPE'];
-            hero.mp -= s.cost;
-            dmg = Math.floor(hero.str * 2.5); // Archer's big hit
-            currentEnemy.hp -= dmg;
-            spawnParticle(450, 150, `-${dmg}!!!`, "#ffaa00");
-            document.getElementById('battle-info').innerText = `CRITICAL SNIPE: ${dmg}!`;
-            try { playNote(800, 'square', 0.1); } catch(e) {}
         }
-        // ... (Keep the rest of the spell logic and monsterTurn) ...
+
+        // ... [Keep enemy and merchant logic] ...
+        enemies.forEach(en => {
+            if(!en.alive) return;
+            let pulse = en.boss ? 6 * Math.sin(frameCount * 0.1) : 0;
+            ctx.fillStyle = en.final ? "white" : (en.boss ? "gold" : "red");
+            ctx.fillRect(en.x - (en.boss?20:12) - pulse/2, en.y - (en.boss?20:12) - pulse/2, (en.boss?40:24) + pulse, (en.boss?40:24) + pulse);
+            if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
+                currentEnemy=en; 
+                document.getElementById('battle-overlay').style.display='flex'; 
+                gameState="BATTLE"; 
+                updateBattleUI(); 
+            }
+        });
     }
-</script>
+    
+    // ... [Keep hero and particle rendering] ...
+    if(hero.active) { ctx.fillStyle = hero.color; ctx.beginPath(); ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2); ctx.fill(); }
+    particles.forEach((p, index) => { ctx.globalAlpha = p.life / 60; ctx.fillStyle = p.color; ctx.font = "bold 20px Courier New"; ctx.fillText(p.text, p.x, p.y); p.y -= 1; p.life--; if(p.life <= 0) particles.splice(index, 1); });
+    
+    ctx.restore(); requestAnimationFrame(loop);
+}
