@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Racing: Player vs AI</title>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; }
+        canvas { background: #333; border: 4px solid #fff; display: block; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .menu { background: rgba(0,0,0,0.9); padding: 25px; border-radius: 15px; display: inline-block; border: 2px solid #555; margin-top: 20px; }
+        button { padding: 12px 24px; margin: 8px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; transition: 0.2s; }
+        button:hover { transform: scale(1.05); background: #eee; }
+        .shop-btn { background: #ffd700; color: #000; }
+        #ui { font-size: 24px; font-weight: bold; padding: 20px; color: #00ff41; }
+        .controls-hint { color: #aaa; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        💰 Coins: <span id="coinCount">0</span> | 🏁 Lap: <span id="lapCount">1</span>/3
+    </div>
+    
+    <div id="menu" class="menu">
+        <h2>CHOOSE A TRACK</h2>
+        <button onclick="startRace(0)" style="background: #555; color: white;">City Circuit</button>
+        <button onclick="startRace(1)" style="background: #edc9af; color: #000;">Desert Drift</button>
+        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+        <h2>VEHICLE SHOP</h2>
+        <button id="buySport" class="shop-btn" onclick="buyCar(1, 100)">Unlock Sport Car (100 Coins)</button>
+        <div class="controls-hint">Use ARROW KEYS to drive</div>
+    </div>
+
+    <canvas id="raceCanvas" width="400" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- GAME DATA ---
+        let coins = 0;
+        let currentLap = 1;
+        let gameState = "MENU"; 
+
+        const maps = [
+            { name: "City", color: "#444", finishLine: "white", aiSpeed: 3.5 },
+            { name: "Desert", color: "#edc9af", finishLine: "#8b4513", aiSpeed: 2.8 }
+        ];
+
+        const cars = [
+            { name: "Starter", speed: 5, color: "#ff4444", owned: true },
+            { name: "Sport", speed: 9, color: "#00f2ff", owned: false }
+        ];
+
+        let player = { x: 220, y: 500, currentCar: cars[0], map: maps[0] };
+        let opponent = { x: 140, y: 500, speed: 3.5, color: "#ffeb3b", laps: 1 };
+        let keys = {};
+
+        // --- INPUTS ---
+        window.addEventListener("keydown", e => keys[e.code] = true);
+        window.addEventListener("keyup", e => keys[e.code] = false);
+
+        function startRace(mapIndex) {
+            player.map = maps[mapIndex];
+            player.y = 500;
+            player.x = 220;
+            opponent.y = 500;
+            opponent.x = 140;
+            opponent.laps = 1;
+            opponent.speed = maps[mapIndex].aiSpeed; // Set AI difficulty based on map
+            currentLap = 1;
+            gameState = "RACING";
+            document.getElementById('menu').style.display = "none";
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function buyCar(index, price) {
+            if (coins >= price && !cars[index].owned) {
+                coins -= price;
+                cars[index].owned = true;
+                player.currentCar = cars[index];
+                alert("🏎️ Sport Car Unlocked!");
+                updateUI();
+            } else if (cars[index].owned) {
+                player.currentCar = cars[index];
+                alert("Equipped Sport Car!");
+            } else {
+                alert("❌ Not enough coins!");
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('coinCount').innerText = coins;
+            document.getElementById('lapCount').innerText = currentLap;
+        }
+
+        // --- GAME ENGINE ---
+        function gameLoop() {
+            if (gameState !== "RACING") return;
+
+            // 1. Draw Track & Finish Line
+            ctx.fillStyle = player.map.color;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = player.map.finishLine;
+            ctx.fillRect(0, 50, canvas.width, 15);
+
+            // 2. Player Movement
+            if (keys["ArrowUp"]) player.y -= player.currentCar.speed;
+            if (keys["ArrowDown"]) player.y += player.currentCar.speed;
+            if (keys["ArrowLeft"] && player.x > 0) player.x -= 5;
+            if (keys["ArrowRight"] && player.x < canvas.width - 40) player.x += 5;
+
+            // 3. AI Opponent Logic
+            opponent.y -= opponent.speed;
+
+            // 4. Lap & Victory Logic
+            // --- Player Lap Check ---
+            if (player.y < 50) {
+                if (currentLap < 3) {
+                    currentLap++;
+                    player.y = 540; 
+                    updateUI();
+                } else {
+                    endGame("VICTORY! You earned 50 coins.", 50);
+                }
+            }
+
+            // --- AI Lap Check ---
+            if (opponent.y < 50) {
+                if (opponent.laps < 3) {
+                    opponent.laps++;
+                    opponent.y = 540;
+                } else {
+                    endGame("DEFEAT! The AI finished first.", 10);
+                }
+            }
+
+            // 5. Render Cars
+            // AI Car
+            ctx.fillStyle = opponent.color;
+            ctx.fillRect(opponent.x, opponent.y, 40, 60);
+            ctx.strokeStyle = "black";
+            ctx.strokeRect(opponent.x, opponent.y, 40, 60);
+
+            // Player Car
+            ctx.fillStyle = player.currentCar.color;
+            ctx.fillRect(player.x, player.y, 40, 60);
+            ctx.strokeRect(player.x, player.y, 40, 60);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame(message, reward) {
+            gameState = "MENU";
+            coins += reward;
+            alert(message);
+            document.getElementById('menu').style.display = "inline-block";
+            updateUI();
+        }
+    </script>
+</body>
+</html>
