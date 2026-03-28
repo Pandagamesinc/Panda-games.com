@@ -3,28 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMERALD SPIRE: BLACK MARKET</title>
+    <title>EMERALD SPIRE: STALKING SHADOWS</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
-        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
-        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; }
-        #battle-overlay, #merchant-overlay, #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
-        .menu-box { border: 2px solid gold; padding: 25px; background: #111; text-align: center; width: 600px; }
-        .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 185px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; font-size: 11px; }
+        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; }
+        canvas { display: block; width: 100%; height: 100%; background: black; }
+        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 12px; box-sizing: border-box; }
+        #battle-overlay, #merchant-overlay, #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
+        .menu-box { border: 2px solid gold; padding: 20px; background: #111; text-align: center; width: 500px; }
+        .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 150px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; }
         .btn:hover:not(:disabled) { background: #00ff41; color: #000; }
-        .btn:disabled { border-color: #333; color: #333; cursor: not-allowed; }
-        #spell-menu { display: none; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 10px; }
-        .hp-bar { color: #ff4444; font-weight: bold; }
-        .mp-bar { color: #00d4ff; font-weight: bold; }
+        #spell-menu { display: none; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .hp-bar { color: #ff4444; font-weight: bold; } .mp-bar { color: #00d4ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div>
-        <div id="char-name" style="color:gold">SELECT CLASS</div>
+        <div id="char-name" style="color:gold">CHOOSE HERO</div>
         <div class="hp-bar" id="stat-hp">HP: --</div>
         <div class="mp-bar" id="stat-mp">MP: --</div>
     </div>
@@ -33,12 +31,12 @@
         <div id="stat-xp" style="color:#4444ff">XP: 0/100</div>
     </div>
     <div id="meta-controls">
-        <div style="color:#00ff41; font-weight:bold; margin-bottom:5px;">FLOOR: <span id="floor-num">1</span></div>
+        <div style="color:#00ff41; font-weight:bold;">FLOOR: <span id="floor-num">1</span></div>
         <div id="selection-area" style="display:flex; flex-direction:column; gap:5px; align-items:center;">
             <div id="class-select" style="display:flex; gap:5px;">
-                <button class="btn" id="btn-Mage" style="width:70px; padding:5px; color:#00d4ff;" onclick="previewClass('Mage', '#00d4ff')">MAGE</button>
-                <button class="btn" id="btn-Pala" style="width:70px; padding:5px; color:#fff;" onclick="previewClass('Pala', '#fff')">PALADIN</button>
-                <button class="btn" id="btn-Arch" style="width:70px; padding:5px; color:#ffaa00;" onclick="previewClass('Arch', '#ffaa00')">ARCHER</button>
+                <button class="btn" id="btn-Mage" style="width:70px; padding:5px; color:#00d4ff;" onclick="previewClass('Mage', '#00d4ff')">GANDALF</button>
+                <button class="btn" id="btn-Pala" style="width:70px; padding:5px; color:#fff;" onclick="previewClass('Pala', '#fff')">ARTHUR</button>
+                <button class="btn" id="btn-Arch" style="width:70px; padding:5px; color:#ffaa00;" onclick="previewClass('Arch', '#ffaa00')">APOLLO</button>
             </div>
             <button id="confirm-start" class="btn" style="display:none; width:220px; background:gold; color:black; border-color:white;" onclick="startGame()">START JOURNEY</button>
         </div>
@@ -50,34 +48,36 @@
     
     <div id="battle-overlay">
         <div class="menu-box">
-            <h2 id="battle-title">BATTLE!</h2>
-            <div id="battle-stats" style="margin-bottom: 15px;"></div>
+            <h2 id="battle-title" style="color:red;">BATTLE</h2>
+            <div id="battle-stats" style="margin-bottom:10px; border-bottom:1px solid #444; padding-bottom:5px; font-size: 14px;"></div>
             <div id="main-battle-menu">
-                <button class="btn" onclick="playerAction('ATTACK')">⚔️ ATTACK</button>
-                <button class="btn" onclick="toggleSpells(true)">✨ SKILLS</button>
-                <button class="btn" onclick="playerAction('HEAL')">🧪 HEAL (15MP)</button>
+                <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
+                <button class="btn" onclick="toggleSpells(true)">SKILLS</button>
+                <button class="btn" onclick="playerAction('HEAL')">HEAL (15MP)</button>
             </div>
             <div id="spell-menu">
-                <button class="btn" style="color:orange; width: 100%; grid-column: span 3;" onclick="toggleSpells(false)">🔙 BACK</button>
+                <button class="btn" style="color:orange; grid-column: span 2;" onclick="toggleSpells(false)">BACK</button>
             </div>
-            <div id="battle-info" style="margin-top: 15px; color: gold;">Prepare!</div>
+            <div id="battle-info" style="color: gold; margin-top:10px;"></div>
         </div>
     </div>
 
     <div id="merchant-overlay">
         <div class="menu-box">
-            <h2 id="m-title" style="color:#00ff41">ETHER MERCHANT</h2>
-            <div id="m-shop-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                </div>
-            <button class="btn" style="color:red; width: 100%; margin-top: 10px;" onclick="closeMerchant()">LEAVE</button>
+            <h2 id="m-title">ETHER MERCHANT</h2>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <button class="btn" onclick="buyItem('mana')">MANA POT (25XP)</button>
+                <button class="btn" onclick="buyItem('rest')">REST (15XP)</button>
+                <button class="btn" onclick="buyStat('str')">+STR (40XP)</button>
+                <button class="btn" onclick="buyStat('int')">+INT (40XP)</button>
+                <button class="btn" onclick="buyStat('con')">+CON (40XP)</button>
+                <button class="btn" style="color:red; grid-column: span 2;" onclick="closeMerchant()">LEAVE</button>
+            </div>
         </div>
     </div>
 
     <div id="modal-overlay">
-        <div class="menu-box">
-            <h3 id="modal-title" style="color:gold">LEVEL UP</h3>
-            <div id="modal-options"></div>
-        </div>
+        <div class="menu-box" id="modal-content"></div>
     </div>
 </div>
 
@@ -87,20 +87,13 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
-    const audio = new (window.AudioContext || window.webkitAudioContext)();
+    
+    let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
+    let checkpoint = null, gameState = "SELECT", mySpells = [], particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
+    let enemies = [], merchant = null, currentEnemy = null;
 
-    let hero = { active: false, type: '', color: 'white', x: 450, y: 250, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, shield: 0, artifacts: [] };
-    let checkpoint = null, deathGhost = null, merchantGreed = 0, monsterStunned = false, tempSelection = null;
-    let enemies = [], merchant = null, currentEnemy = null, keys = {}, gameState = "SELECT", mySpells = [], particles = [], shakeTimer = 0, frameCount = 0;
-
-    const SPELL_DATA = {
-        'FIRE': { name: 'Fireball', cost: 12 },
-        'SNIPE': { name: 'Power Shot', cost: 15 },
-        'BASH': { name: 'Shield Bash', cost: 10 },
-        'ICE': { name: 'Ice Bolt', cost: 10 },
-        'DRAIN': { name: 'Lifesteal', cost: 20 },
-        'SHIELD': { name: 'Divine Shield', cost: 25 }
-    };
+    const MONSTER_NAMES = ["Void Slime", "Spire Sentinel", "Shadow Knight", "Cursed Remnant", "Static Wraith"];
+    const BOSS_NAMES = ["Emerald Watcher", "The Spire Core", "Void Arbiter"];
 
     function addLog(msg, color) {
         const div = document.createElement('div'); div.style.color = color || 'white';
@@ -109,110 +102,89 @@
 
     function previewClass(cls, color) {
         tempSelection = { cls, color };
-        ['Mage', 'Pala', 'Arch'].forEach(c => document.getElementById('btn-'+c).style.borderColor = '#00ff41');
-        document.getElementById('btn-'+cls).style.borderColor = 'gold';
         document.getElementById('confirm-start').style.display = 'block';
+        document.getElementById('confirm-start').innerText = `START ${cls.toUpperCase()}`;
     }
 
     function startGame() {
         if (!tempSelection) return;
-        if (audio.state === 'suspended') audio.resume();
         const { cls, color } = tempSelection;
         hero.type = cls; hero.color = color; hero.active = true;
         document.getElementById('selection-area').style.display = 'none';
 
-        if(cls === 'Mage') { hero.int=45; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; mySpells=['FIRE']; }
-        else if(cls === 'Arch') { hero.str=35; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; mySpells=['SNIPE']; }
-        else { hero.str=25; hero.con=40; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; mySpells=['BASH']; }
+        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; mySpells=['FIRE']; }
+        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; mySpells=['SNIPE']; }
+        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; mySpells=['BASH']; }
 
         gameState = "EXPLORE"; spawnFloor(); updateUI();
+    }
+
+    function drawHero(x, y) {
+        ctx.save();
+        if (hero.type === 'Mage') { // GANDALF
+            ctx.fillStyle = "#888"; ctx.fillRect(x-10, y, 20, 25);
+            ctx.fillStyle = "white"; ctx.fillRect(x-8, y-5, 16, 15);
+            ctx.fillStyle = "#555"; ctx.beginPath(); ctx.moveTo(x-15, y-5); ctx.lineTo(x+15, y-5); ctx.lineTo(x, y-25); ctx.fill();
+            ctx.strokeStyle = "brown"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x+12, y-5); ctx.lineTo(x+18, y+20); ctx.stroke();
+        } else if (hero.type === 'Pala') { // ARTHUR
+            ctx.fillStyle = "#aaa"; ctx.fillRect(x-12, y-5, 24, 30);
+            ctx.fillStyle = "gold"; ctx.fillRect(x-10, y-15, 20, 5); ctx.fillRect(x-10, y-20, 4, 10); ctx.fillRect(x+6, y-20, 4, 10);
+            ctx.fillStyle = "red"; ctx.fillRect(x-15, y, 5, 25);
+            ctx.strokeStyle = "white"; ctx.beginPath(); ctx.moveTo(x+14, y+20); ctx.lineTo(x+14, y-10); ctx.stroke();
+        } else if (hero.type === 'Arch') { // APOLLO
+            ctx.fillStyle = "#f3e5ab"; ctx.fillRect(x-10, y-5, 20, 30);
+            ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(x, y-10, 10, 0, Math.PI, true); ctx.fill();
+            ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
+        }
+        ctx.restore();
     }
 
     function spawnFloor() {
         enemies = [];
         let isArena = (hero.level % 10 === 0);
         document.getElementById('floor-num').innerText = hero.level;
-
-        if (isArena) {
-            enemies.push({ x: 450, y: 250, hp: 500+(hero.level*60), maxHP: 500+(hero.level*60), atk: 25+(hero.level*5), alive: true, boss: true, guardian: true });
+        
+        if(isArena) {
+            enemies.push({ 
+                name: BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)],
+                x: 450, y: 100, hp: 600+(hero.level*50), maxHP: 600+(hero.level*50), 
+                atk: 30+(hero.level*4), alive: true, guardian: true, vx: 0, vy: 0 
+            });
         } else {
             for(let i=0; i<3; i++) {
-                enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, hp: 50+(hero.level*30), maxHP: 50+(hero.level*30), atk: 8+(hero.level*4), alive: true });
+                enemies.push({ 
+                    name: MONSTER_NAMES[Math.floor(Math.random()*MONSTER_NAMES.length)],
+                    x: Math.random()*800+50, y: Math.random()*400+50, 
+                    hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), 
+                    atk: 10+(hero.level*3), alive: true, 
+                    vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2 
+                });
             }
         }
-        
-        // Randomize Merchant Inventory
-        let shopPool = [
-            { id: 'mana', name: 'Mana Potion', cost: 25, type: 'item' },
-            { id: 'rest', name: 'Rest', cost: 15, type: 'item' },
-            { id: 'str', name: '+15 STR', cost: 40, type: 'stat' },
-            { id: 'int', name: '+15 INT', cost: 40, type: 'stat' },
-            { id: 'con', name: '+15 CON', cost: 40, type: 'stat' }
-        ];
-        
-        // 20% Chance for rare artifact in shop
-        if(Math.random() < 0.2) {
-            shopPool.push({ id: 'Eye', name: 'Glass Eye', cost: 150, type: 'artifact' });
-        }
-
-        merchant = { 
-            x: Math.random()*800+50, 
-            y: Math.random()*400+50, 
-            active: true, 
-            inventory: shopPool.sort(() => 0.5 - Math.random()).slice(0, 4) 
-        };
+        merchant = { x: Math.random()*800+50, y: Math.random()*400+50, active: true };
     }
-
-    function openMerchant() {
-        const grid = document.getElementById('m-shop-grid');
-        grid.innerHTML = '';
-        merchant.inventory.forEach(item => {
-            const b = document.createElement('button');
-            b.className = 'btn';
-            b.innerHTML = `${item.name}<br>(${item.cost} XP)`;
-            b.onclick = () => {
-                if(hero.xp >= item.cost) {
-                    hero.xp -= item.cost;
-                    if(item.type === 'stat') { hero[item.id] += 15; if(item.id === 'con') hero.maxHP += 30; }
-                    else if(item.id === 'mana') { hero.mp = Math.min(hero.maxMP, hero.mp + (hero.maxMP * 0.5)); }
-                    else if(item.id === 'rest') { hero.hp = Math.min(hero.maxHP, hero.hp + (hero.maxHP * 0.3)); }
-                    else if(item.type === 'artifact') { hero.artifacts.push(item.id); }
-                    addLog(`BOUGHT: ${item.name}`, "gold");
-                    updateUI();
-                    // Item stays or leaves based on preference; here we close shop
-                    closeMerchant();
-                } else { addLog("NEED MORE XP", "red"); }
-            };
-            grid.appendChild(b);
-        });
-        document.getElementById('merchant-overlay').style.display = 'flex';
-        gameState = "MENU";
-    }
-
-    function closeMerchant() { document.getElementById('merchant-overlay').style.display = 'none'; merchant.active = false; gameState = "EXPLORE"; }
 
     function playerAction(type) {
-        let dmg = 0; let isCrit = (hero.artifacts.includes('Eye') && Math.random() < 0.2);
+        let dmg = 0; let crit = (hero.artifacts.includes('Eye') && Math.random() < 0.2);
         if (type === 'ATTACK') {
-            dmg = Math.floor(hero.str * 0.7);
-            if(isCrit) dmg *= 2;
-            currentEnemy.hp -= dmg; spawnParticle(450, 150, isCrit ? `CRIT! -${dmg}` : `-${dmg}`, isCrit?"gold":"white");
+            dmg = Math.floor(hero.str * 0.8);
+            if(crit) dmg *= 2;
+            currentEnemy.hp -= dmg; spawnParticle(450, 150, crit ? `CRIT -${dmg}` : `-${dmg}`, crit?"gold":"white");
         } else if (type === 'HEAL') {
             if(hero.mp < 15) return;
-            hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp + h);
+            hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
             spawnParticle(450, 350, `+${h} HP`, "#00ff41");
         } else {
-            hero.mp -= 10; dmg = hero.int + 30; currentEnemy.hp -= dmg;
-            spawnParticle(450, 150, `-${dmg}`, "#00d4ff");
+            hero.mp -= 10; dmg = hero.int + 30; currentEnemy.hp -= dmg; spawnParticle(450, 150, `-${dmg}`, "cyan");
         }
         updateUI(); updateBattleUI(); toggleSpells(false);
-        if (currentEnemy.hp <= 0) setTimeout(victory, 600);
-        else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 800); }
+        if(currentEnemy.hp <= 0) victory(); 
+        else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 600); }
     }
 
     function monsterTurn() {
-        let totalDmg = Math.max(5, currentEnemy.atk - (hero.con / 3));
-        if (hero.type === 'Mage' && hero.mp > 0) {
+        let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
+        if(hero.type === 'Mage' && hero.mp > 0) {
             let mpDmg = totalDmg * 0.5; let hpDmg = totalDmg * 0.5;
             if(hero.mp < mpDmg) { hpDmg += (mpDmg - hero.mp); hero.mp = 0; }
             else { hero.mp -= mpDmg; }
@@ -223,104 +195,120 @@
             hero.hp -= totalDmg;
             spawnParticle(450, 350, `-${Math.floor(totalDmg)}`, "red");
         }
-        shakeTimer = 15; updateUI(); updateBattleUI();
-        if (hero.hp <= 0) handleDeath();
+        shakeTimer = 10; updateUI(); updateBattleUI();
+        if(hero.hp <= 0) handleDeath();
         else document.getElementById('battle-overlay').style.pointerEvents = 'auto';
     }
 
     function victory() {
+        addLog(`DEFEATED ${currentEnemy.name.toUpperCase()}`, "gold");
         document.getElementById('battle-overlay').style.display = 'none';
         document.getElementById('battle-overlay').style.pointerEvents = 'auto';
-        currentEnemy.alive = false; 
-        if (currentEnemy.guardian) triggerArtifact();
-        else {
-            hero.xp += 50; if (hero.xp >= hero.nextXP) triggerLevelUp();
-            else if (enemies.filter(e => e.alive).length === 0) { hero.level++; spawnFloor(); }
+        currentEnemy.alive = false;
+        if(currentEnemy.guardian) {
+            checkpoint = { hero: JSON.parse(JSON.stringify(hero)), mySpells: [...mySpells] };
+            triggerArtifact();
+        } else {
+            hero.xp += 50; if(hero.xp >= hero.nextXP) triggerLevelUp();
+            else if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
         }
         gameState = "EXPLORE";
     }
 
-    function triggerArtifact() {
-        gameState = "MENU"; document.getElementById('modal-overlay').style.display = 'flex';
-        const opt = document.getElementById('modal-options'); opt.innerHTML = '<h4>GUARDIAN DEFEATED</h4>';
-        const b1 = document.createElement('button'); b1.className = 'btn'; b1.innerText = "Leaden Boots";
-        b1.onclick = () => { hero.artifacts.push('Boots'); finalizeLevel(); };
-        const b2 = document.createElement('button'); b2.className = 'btn'; b2.innerText = "Glass Eye";
-        b2.onclick = () => { hero.artifacts.push('Eye'); finalizeLevel(); };
-        opt.append(b1, b2);
-    }
-
-    function triggerLevelUp() {
-        hero.level++; hero.xp=0; hero.nextXP*=1.8; gameState="MENU";
-        document.getElementById('modal-overlay').style.display='flex';
-        const opt = document.getElementById('modal-options'); opt.innerHTML='<h4>SKILL UP</h4>';
-        Object.keys(SPELL_DATA).filter(id=>!mySpells.includes(id)).slice(0,2).forEach(id=>{
-            let b=document.createElement('button'); b.className='btn'; b.innerText=`LEARN ${id}`;
-            b.onclick=()=> {mySpells.push(id); finalizeLevel();}; opt.appendChild(b);
+    function updateEnemyAI() {
+        enemies.forEach(en => {
+            if(!en.alive) return;
+            if(en.guardian) {
+                let dx = hero.x - en.x, dy = hero.y - en.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < 250) {
+                    en.x += (dx/dist) * 1.5;
+                    en.y += (dy/dist) * 1.5;
+                }
+            } else {
+                en.x += en.vx; en.y += en.vy;
+                if(en.x < 20 || en.x > 880) en.vx *= -1;
+                if(en.y < 20 || en.y > 480) en.vy *= -1;
+            }
         });
     }
 
-    function finalizeLevel() { 
-        hero.maxHP += 50; hero.hp = hero.maxHP; 
-        document.getElementById('modal-overlay').style.display='none'; 
-        if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
-        gameState="EXPLORE"; updateUI(); 
+    function buyItem(type) {
+        if (type === 'mana' && hero.xp >= 25) { hero.xp -= 25; hero.mp = Math.min(hero.maxMP, hero.mp + (hero.maxMP * 0.5)); addLog("MANA REFILLED", "cyan"); }
+        else if (type === 'rest' && hero.xp >= 15) { hero.xp -= 15; hero.hp = Math.min(hero.maxHP, hero.hp + (hero.maxHP * 0.3)); addLog("RESTED AT CAMP", "#00ff41"); }
+        updateUI();
     }
 
-    function handleDeath() { location.reload(); }
-
-    function updateUI() {
-        if(!hero.active) return;
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`;
-        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`;
-        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con;
-        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type}`;
+    function buyStat(s) { if(hero.xp>=40){hero.xp-=40; hero[s]+=15; updateUI(); } }
+    function closeMerchant() { document.getElementById('merchant-overlay').style.display='none'; merchant.active=false; gameState="EXPLORE"; }
+    function triggerArtifact() {
+        gameState = "MENU"; document.getElementById('modal-overlay').style.display='flex';
+        let mc = document.getElementById('modal-content');
+        mc.innerHTML = `<h3>GUARDIAN DEFEATED</h3><button class="btn" onclick="getArt('Boots')">BOOTS (Anti-Stun)</button><button class="btn" onclick="getArt('Eye')">EYE (+Crit)</button>`;
     }
-
-    function updateBattleUI() { document.getElementById('battle-stats').innerHTML = `HERO: ${Math.floor(hero.hp)} HP | FOE: ${Math.floor(currentEnemy.hp)} HP`; }
-
-    function toggleSpells(show) {
-        const sm = document.getElementById('spell-menu'), mb = document.getElementById('main-battle-menu');
-        if(!show) { mb.style.display='block'; sm.style.display='none'; return; }
-        mb.style.display='none'; sm.style.display='grid';
-        const back = sm.lastElementChild; sm.innerHTML = '';
-        mySpells.forEach(id => { const b = document.createElement('button'); b.className='btn'; b.innerText=id; b.onclick=()=>playerAction(id); sm.appendChild(b); });
-        sm.appendChild(back);
+    function getArt(a) { hero.artifacts.push(a); finalize(); }
+    function triggerLevelUp() {
+        gameState = "MENU"; document.getElementById('modal-overlay').style.display='flex';
+        let mc = document.getElementById('modal-content');
+        mc.innerHTML = `<h3>LEVEL UP</h3><button class="btn" onclick="finalize()">STR/INT +20</button>`;
     }
-
+    function finalize() { hero.maxHP += 50; hero.hp = hero.maxHP; hero.xp=0; hero.nextXP *= 1.5; document.getElementById('modal-overlay').style.display='none'; if(enemies.filter(e=>e.alive).length===0){hero.level++; spawnFloor();} gameState="EXPLORE"; updateUI(); }
+    function handleDeath() { if(checkpoint) { hero = JSON.parse(JSON.stringify(checkpoint.hero)); document.getElementById('battle-overlay').style.display='none'; gameState="EXPLORE"; spawnFloor(); updateUI(); } else { location.reload(); } }
+    
+    function updateUI() { 
+        if(!hero.active) return; 
+        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
+        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
+        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`; 
+        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con; 
+        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`; 
+    }
+    
+    function updateBattleUI() { 
+        let hLabel = hero.type === 'Mage' ? 'GANDALF' : (hero.type === 'Pala' ? 'ARTHUR' : 'APOLLO');
+        document.getElementById('battle-title').innerText = `BATTLE: ${currentEnemy.name.toUpperCase()}`;
+        document.getElementById('battle-stats').innerHTML = `<span style="color:cyan">${hLabel}: ${Math.floor(hero.hp)} HP</span> | <span style="color:red">${currentEnemy.name}: ${Math.floor(currentEnemy.hp)} HP</span>`; 
+    }
+    
+    function toggleSpells(s) { document.getElementById('main-battle-menu').style.display = s?'none':'block'; document.getElementById('spell-menu').style.display = s?'grid':'none'; }
     function spawnParticle(x, y, text, color) { particles.push({ x, y, text, color, life: 60 }); }
+
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
     function loop() {
-        frameCount++; ctx.clearRect(0, 0, 900, 500); ctx.save();
-        if (shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
-        
-        ctx.fillStyle = (hero.level % 10 === 0) ? "#100" : "black";
-        ctx.fillRect(0, 0, 900, 500);
+        ctx.clearRect(0, 0, 900, 500); ctx.save();
+        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
         
         if(hero.active && gameState === "EXPLORE") {
             if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
             if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
             if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
             if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
-
+            
             hero.mp = Math.min(hero.maxMP, hero.mp + (hero.type==='Mage'?0.2:0.1));
+            updateEnemyAI();
 
-            enemies.forEach(en => {
-                if(en.alive) {
-                    ctx.fillStyle = en.guardian ? "gold" : "red";
-                    ctx.fillRect(en.x-15, en.y-15, 30, 30);
-                    if(Math.abs(hero.x-en.x)<30 && Math.abs(hero.y-en.y)<30) { currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; gameState="BATTLE"; updateBattleUI(); }
-                }
+            enemies.forEach(en => { 
+                if(en.alive) { 
+                    ctx.fillStyle = en.guardian ? "gold" : "red"; 
+                    ctx.fillRect(en.x-15, en.y-15, 30, 30); 
+                    ctx.fillStyle = "white"; ctx.font = "10px Courier"; ctx.fillText(en.name, en.x-20, en.y-20);
+                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
+                        currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; 
+                        gameState="BATTLE"; updateBattleUI(); 
+                    } 
+                } 
             });
-
-            if(merchant && merchant.active) {
-                ctx.fillStyle = "#00ff41"; ctx.fillRect(merchant.x-15, merchant.y-15, 30, 30);
-                if(Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) openMerchant();
+            
+            if(merchant && merchant.active) { 
+                ctx.fillStyle = "#00ff41"; ctx.fillRect(merchant.x-15, merchant.y-15, 30, 30); 
+                ctx.fillStyle = "white"; ctx.fillText("MERCHANT", merchant.x-20, merchant.y-20);
+                if(Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) { 
+                    document.getElementById('merchant-overlay').style.display='flex'; gameState="MENU"; 
+                } 
             }
-            ctx.fillStyle = hero.color; ctx.beginPath(); ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2); ctx.fill();
+            drawHero(hero.x, hero.y);
         }
         particles.forEach((p, i) => { ctx.globalAlpha = p.life/60; ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; if(p.life<=0) particles.splice(i,1); });
         ctx.restore(); requestAnimationFrame(loop);
