@@ -14,7 +14,6 @@
         .menu-box { border: 2px solid gold; padding: 20px; background: #111; text-align: center; width: 500px; }
         .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 150px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; }
         .btn:hover:not(:disabled) { background: #00ff41; color: #000; }
-        #spell-menu { display: none; grid-template-columns: 1fr 1fr; gap: 5px; }
         .hp-bar { color: #ff4444; font-weight: bold; } .mp-bar { color: #00d4ff; font-weight: bold; }
     </style>
 </head>
@@ -49,29 +48,24 @@
     <div id="battle-overlay">
         <div class="menu-box">
             <h2 id="battle-title" style="color:red;">BATTLE</h2>
-            <div id="battle-stats" style="margin-bottom:10px; border-bottom:1px solid #444; padding-bottom:5px;"></div>
+            <div id="battle-stats"></div>
             <div id="main-battle-menu">
                 <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
-                <button class="btn" onclick="toggleSpells(true)">SKILLS</button>
                 <button class="btn" onclick="playerAction('HEAL')">HEAL (15MP)</button>
             </div>
-            <div id="spell-menu">
-                <button class="btn" style="color:orange; grid-column: span 2;" onclick="toggleSpells(false)">BACK</button>
-            </div>
-            <div id="battle-info" style="color: gold; margin-top:10px;"></div>
         </div>
     </div>
 
     <div id="merchant-overlay">
         <div class="menu-box">
-            <h2 id="m-title">ETHER MERCHANT</h2>
+            <h2 style="color:mediumpurple">ETHER MERCHANT</h2>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <button class="btn" onclick="buyItem('mana')">MANA POT (25XP)</button>
+                <button class="btn" onclick="buyItem('mana')">MANA (25XP)</button>
                 <button class="btn" onclick="buyItem('rest')">REST (15XP)</button>
                 <button class="btn" onclick="buyStat('str')">+STR (40XP)</button>
                 <button class="btn" onclick="buyStat('int')">+INT (40XP)</button>
                 <button class="btn" onclick="buyStat('con')">+CON (40XP)</button>
-                <button class="btn" style="color:red; grid-column: span 2;" onclick="closeMerchant()">LEAVE</button>
+                <button class="btn" style="color:red; grid-column: span 2;" onclick="closeMerchant()">NEXT FLOOR</button>
             </div>
         </div>
     </div>
@@ -88,28 +82,14 @@
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
     
-    let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
-    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
-    let enemies = [], currentEnemy = null;
+    let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10 };
+    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {};
+    let enemies = [], merchant = null, currentEnemy = null, tempSelection = null;
 
-    const MONSTER_NAMES = ["Void Slime", "Spire Sentinel", "Shadow Knight", "Cursed Remnant", "Static Wraith"];
-    const BOSS_NAMES = ["Emerald Watcher", "The Spire Core", "Void Arbiter"];
+    window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; keys[e.key] = true; if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault(); });
+    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; keys[e.key] = false; });
 
-    // --- INPUT SYSTEM (WASD + ARROWS) ---
-    window.addEventListener('keydown', (e) => { 
-        keys[e.key.toLowerCase()] = true; 
-        keys[e.key] = true; 
-        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
-    });
-    window.addEventListener('keyup', (e) => { 
-        keys[e.key.toLowerCase()] = false; 
-        keys[e.key] = false; 
-    });
-
-    function addLog(msg, color) {
-        const div = document.createElement('div'); div.style.color = color || 'white';
-        div.innerText = `> ${msg}`; log.prepend(div);
-    }
+    function addLog(msg, color) { const div = document.createElement('div'); div.style.color = color || 'white'; div.innerText = `> ${msg}`; log.prepend(div); }
 
     function previewClass(cls, color) {
         tempSelection = { cls, color };
@@ -119,167 +99,150 @@
 
     function startGame() {
         if (!tempSelection) return;
-        const { cls, color } = tempSelection;
-        hero.type = cls; hero.color = color; hero.active = true;
+        hero.type = tempSelection.cls; hero.color = tempSelection.color; hero.active = true;
+        if(hero.type === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; }
+        else if(hero.type === 'Arch') { hero.str=40; hero.speed=7; }
+        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; }
         document.getElementById('selection-area').style.display = 'none';
-
-        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; }
-        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; }
-        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; }
-
         gameState = "EXPLORE"; spawnFloor(); updateUI();
     }
 
-    function drawHero(x, y) {
-        ctx.save();
-        if (hero.type === 'Mage') {
-            ctx.fillStyle = "#888"; ctx.fillRect(x-10, y, 20, 25);
-            ctx.fillStyle = "white"; ctx.fillRect(x-8, y-5, 16, 15);
-            ctx.fillStyle = "#555"; ctx.beginPath(); ctx.moveTo(x-15, y-5); ctx.lineTo(x+15, y-5); ctx.lineTo(x, y-25); ctx.fill();
-            ctx.strokeStyle = "brown"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x+12, y-5); ctx.lineTo(x+18, y+20); ctx.stroke();
-        } else if (hero.type === 'Pala') {
-            ctx.fillStyle = "#aaa"; ctx.fillRect(x-12, y-5, 24, 30);
-            ctx.fillStyle = "gold"; ctx.fillRect(x-10, y-15, 20, 5); ctx.fillRect(x-10, y-20, 4, 10); ctx.fillRect(x+6, y-20, 4, 10);
-            ctx.fillStyle = "red"; ctx.fillRect(x-15, y, 5, 25);
-            ctx.strokeStyle = "white"; ctx.beginPath(); ctx.moveTo(x+14, y+20); ctx.lineTo(x+14, y-10); ctx.stroke();
-        } else if (hero.type === 'Arch') {
-            ctx.fillStyle = "#f3e5ab"; ctx.fillRect(x-10, y-5, 20, 30);
-            ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(x, y-10, 10, 0, Math.PI, true); ctx.fill();
-            ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
+    function spawnFloor() {
+        enemies = []; merchant = null;
+        document.getElementById('floor-num').innerText = hero.level;
+        for(let i=0; i<3; i++) {
+            enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, dx: (Math.random()-0.5)*4, dy: (Math.random()-0.5)*4, hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), atk: 10+(hero.level*3), alive: true, name: "Shadow" });
         }
-        ctx.fillStyle = "#333"; ctx.fillRect(x-15, y+28, 30, 3);
-        ctx.fillStyle = "cyan"; ctx.fillRect(x-15, y+28, (hero.mp/hero.maxMP)*30, 3);
-        ctx.restore();
     }
 
-    function spawnFloor() {
-        enemies = [];
-        let isArena = (hero.level % 10 === 0);
-        document.getElementById('floor-num').innerText = hero.level;
-        if(isArena) {
-            enemies.push({ 
-                name: BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)],
-                x: 450, y: 150, hp: 600+(hero.level*50), maxHP: 600+(hero.level*50), 
-                atk: 30+(hero.level*4), alive: true, guardian: true
-            });
-        } else {
-            for(let i=0; i<3; i++) {
-                enemies.push({ 
-                    name: MONSTER_NAMES[Math.floor(Math.random()*MONSTER_NAMES.length)],
-                    x: Math.random()*800+50, y: Math.random()*400+50, 
-                    hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), 
-                    atk: 10+(hero.level*3), alive: true
-                });
-            }
-        }
+    function spawnMerchant() {
+        merchant = { x: 450, y: 250, active: true };
+        addLog("A MERCHANT HAS APPEARED", "mediumpurple");
+    }
+
+    function handleLevelUp() {
+        hero.level++;
+        hero.xp -= hero.nextXP;
+        hero.nextXP = Math.floor(hero.nextXP * 1.5);
+        
+        // Boost each stat by 10
+        hero.str += 10;
+        hero.int += 10;
+        hero.con += 10;
+        
+        // Full Heal on Level Up
+        hero.hp = hero.maxHP;
+        hero.mp = hero.maxMP;
+
+        addLog(`LEVEL UP! LVL ${hero.level} REACHED!`, "gold");
+        spawnParticle(hero.x, hero.y - 40, "LEVEL UP! +10 ALL STATS", "gold");
+        updateUI();
+    }
+
+    function buyItem(type) {
+        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); }
+        if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); }
+        updateUI();
+    }
+
+    function buyStat(s) { if(hero.xp>=40) { hero.xp-=40; hero[s]+=10; updateUI(); }}
+
+    function closeMerchant() {
+        document.getElementById('merchant-overlay').style.display = 'none';
+        hero.level++; spawnFloor(); gameState = "EXPLORE";
     }
 
     function playerAction(type) {
-        let dmg = 0;
-        if (type === 'ATTACK') {
-            dmg = Math.floor(hero.str * 0.8);
+        if(type === 'ATTACK') {
+            let dmg = Math.floor(hero.str * 0.8);
             currentEnemy.hp -= dmg; spawnParticle(currentEnemy.x, currentEnemy.y, `-${dmg}`, "white");
-        } else if (type === 'HEAL') {
-            if(hero.mp < 15) return;
+        } else if(type === 'HEAL' && hero.mp >= 15) {
             hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
-            spawnParticle(hero.x, hero.y, `+${h} HP`, "#00ff41");
+            spawnParticle(hero.x, hero.y, `+${h}`, "#00ff41");
         }
-        updateUI(); updateBattleUI(); 
-        if(currentEnemy.hp <= 0) victory(); 
-        else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 600); }
+        updateUI(); updateBattleUI();
+        if(currentEnemy.hp <= 0) victory();
+        else setTimeout(monsterTurn, 600);
     }
 
     function monsterTurn() {
-        let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
-        hero.hp -= totalDmg; spawnParticle(hero.x, hero.y, `-${Math.floor(totalDmg)}`, "red");
-        shakeTimer = 10; updateUI(); updateBattleUI();
+        let dmg = Math.max(5, currentEnemy.atk - (hero.con/3));
+        hero.hp -= dmg; shakeTimer = 10; updateUI(); updateBattleUI();
         if(hero.hp <= 0) location.reload();
-        else document.getElementById('battle-overlay').style.pointerEvents = 'auto';
     }
 
     function victory() {
-        addLog(`DEFEATED ${currentEnemy.name.toUpperCase()}`, "gold");
         document.getElementById('battle-overlay').style.display = 'none';
-        document.getElementById('battle-overlay').style.pointerEvents = 'auto';
-        currentEnemy.alive = false;
+        currentEnemy.alive = false; 
         hero.xp += 50; 
-        if(hero.xp >= hero.nextXP) triggerLevelUp();
-        else if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
+        
+        if(hero.xp >= hero.nextXP) {
+            handleLevelUp();
+        }
+
+        updateUI();
+        if(enemies.every(e => !e.alive)) spawnMerchant();
         gameState = "EXPLORE";
     }
 
-    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 60}); }
+    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 90}); }
 
-    function updateUI() { 
-        if(!hero.active) return; 
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
-        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`; 
-        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con; 
-        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`; 
+    function updateUI() {
+        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
+        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`;
+        document.getElementById('stat-xp').innerText=`XP: ${hero.xp}/${hero.nextXP}`;
+        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con;
+        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`;
     }
-    
-    function updateBattleUI() { 
-        document.getElementById('battle-title').innerText = `BATTLE: ${currentEnemy.name.toUpperCase()}`;
-        document.getElementById('battle-stats').innerHTML = `
-            <div style="font-size: 16px; margin-bottom: 8px; color: gold;">VS ${currentEnemy.name}</div>
-            <span style="color:cyan">YOU: ${Math.floor(hero.hp)} HP</span> | 
-            <span style="color:red">FOE: ${Math.floor(currentEnemy.hp)} HP</span>
-        `; 
+
+    function updateBattleUI() {
+        document.getElementById('battle-stats').innerHTML = `<span style="color:cyan">YOU: ${Math.floor(hero.hp)}</span> | <span style="color:red">FOE: ${Math.floor(currentEnemy.hp)}</span>`;
     }
 
     function loop() {
         ctx.clearRect(0, 0, 900, 500); ctx.save();
         if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
-        
-        if(hero.active) {
-            if(gameState === "EXPLORE") {
-                if((keys['w'] || keys['ArrowUp']) && hero.y > 20) hero.y -= hero.speed;
-                if((keys['s'] || keys['ArrowDown']) && hero.y < 480) hero.y += hero.speed;
-                if((keys['a'] || keys['ArrowLeft']) && hero.x > 20) hero.x -= hero.speed;
-                if((keys['d'] || keys['ArrowRight']) && hero.x < 880) hero.x += hero.speed;
-                
-                enemies.forEach(en => { 
-                    if(en.alive) { 
-                        ctx.fillStyle = en.guardian ? "gold" : "red"; 
-                        ctx.fillRect(en.x-15, en.y-15, 30, 30); 
-                        ctx.fillStyle = "white"; ctx.font = "10px Courier"; 
-                        ctx.fillText(en.name, en.x-20, en.y-32);
 
-                        let hpPerc = en.hp / en.maxHP;
-                        ctx.fillStyle = "#333"; ctx.fillRect(en.x-15, en.y-28, 30, 4);
-                        ctx.fillStyle = `rgb(${255 * (1 - hpPerc)}, ${255 * hpPerc}, 0)`;
-                        ctx.fillRect(en.x-15, en.y-28, hpPerc * 30, 4);
-                        
-                        if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
-                            currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; 
-                            gameState="BATTLE"; updateBattleUI(); 
-                        } 
-                    } 
-                });
-            } else if (gameState === "BATTLE") {
-                ctx.strokeStyle = "white"; ctx.strokeRect(currentEnemy.x-17, currentEnemy.y-17, 34, 34);
-                ctx.fillStyle = currentEnemy.guardian ? "gold" : "red"; ctx.fillRect(currentEnemy.x-15, currentEnemy.y-15, 30, 30);
+        if(hero.active && gameState === "EXPLORE") {
+            if((keys['w'] || keys['arrowup']) && hero.y > 20) hero.y -= hero.speed;
+            if((keys['s'] || keys['arrowdown']) && hero.y < 480) hero.y += hero.speed;
+            if((keys['a'] || keys['arrowleft']) && hero.x > 20) hero.x -= hero.speed;
+            if((keys['d'] || keys['arrowright']) && hero.x < 880) hero.x += hero.speed;
+
+            if(merchant && Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) {
+                gameState = "MERCHANT"; document.getElementById('merchant-overlay').style.display = "flex";
             }
-            drawHero(hero.x, hero.y);
+
+            enemies.forEach(en => {
+                if(en.alive) {
+                    en.x += en.dx; en.y += en.dy;
+                    if(en.x<20 || en.x>880) en.dx*=-1; if(en.y<20 || en.y>480) en.dy*=-1;
+                    ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(en.x-18, en.y-18, 36, 36);
+                    ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30);
+                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) {
+                        currentEnemy=en; gameState="BATTLE"; updateBattleUI();
+                        document.getElementById('battle-overlay').style.display='flex';
+                    }
+                }
+            });
         }
-        particles.forEach((p, i) => { ctx.globalAlpha = p.life/60; ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; if(p.life<=0) particles.splice(i,1); });
+
+        if(merchant) { ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); ctx.fillStyle="white"; ctx.fillText("SHOP", merchant.x-12, merchant.y+5); }
+
+        // Draw Hero
+        ctx.fillStyle = hero.color; ctx.fillRect(hero.x-15, hero.y-15, 30, 30);
+        
+        // Draw Particles
+        ctx.font = "14px Courier New";
+        particles.forEach((p, i) => { 
+            ctx.fillStyle = p.color; 
+            ctx.fillText(p.text, p.x - (p.text.length * 4), p.y--); 
+            p.life--; 
+            if(p.life<=0) particles.splice(i,1); 
+        });
+        
         ctx.restore(); requestAnimationFrame(loop);
     }
-
-    function buyItem(type) {
-        if (type === 'mana' && hero.xp >= 25) { hero.xp -= 25; hero.mp = Math.min(hero.maxMP, hero.mp + 50); }
-        else if (type === 'rest' && hero.xp >= 15) { hero.xp -= 15; hero.hp = Math.min(hero.maxHP, hero.hp + 40); }
-        updateUI();
-    }
-    function triggerLevelUp() {
-        gameState = "MENU"; document.getElementById('modal-overlay').style.display='flex';
-        let mc = document.getElementById('modal-content');
-        mc.innerHTML = `<h3>LEVEL UP</h3><button class="btn" onclick="finalize()">STR/INT +20</button>`;
-    }
-    function finalize() { hero.maxHP += 50; hero.hp = hero.maxHP; hero.xp=0; hero.nextXP *= 1.5; document.getElementById('modal-overlay').style.display='none'; if(enemies.filter(e=>e.alive).length===0){hero.level++; spawnFloor();} gameState="EXPLORE"; updateUI(); }
-    function toggleSpells(s) { document.getElementById('main-battle-menu').style.display = s?'none':'block'; document.getElementById('spell-menu').style.display = s?'grid':'none'; }
-
     loop();
 </script>
 </body>
