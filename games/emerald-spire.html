@@ -3,28 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMERALD SPIRE: ARTIFACTS</title>
+    <title>EMERALD SPIRE: MAGE NERF & SHOP</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
-        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
-        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; }
-        #battle-overlay, #merchant-overlay, #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
-        .menu-box { border: 2px solid gold; padding: 25px; background: #111; text-align: center; width: 600px; }
-        .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 185px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; font-size: 11px; }
+        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; }
+        canvas { display: block; width: 100%; height: 100%; background: black; }
+        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 12px; box-sizing: border-box; }
+        #battle-overlay, #merchant-overlay, #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
+        .menu-box { border: 2px solid gold; padding: 20px; background: #111; text-align: center; width: 500px; }
+        .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 150px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; }
         .btn:hover:not(:disabled) { background: #00ff41; color: #000; }
-        .btn:disabled { border-color: #333; color: #333; cursor: not-allowed; }
-        #spell-menu { display: none; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 10px; }
-        .hp-bar { color: #ff4444; font-weight: bold; }
-        .mp-bar { color: #00d4ff; font-weight: bold; }
+        #spell-menu { display: none; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .hp-bar { color: #ff4444; font-weight: bold; } .mp-bar { color: #00d4ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div>
-        <div id="char-name" style="color:gold">SELECT CLASS</div>
+        <div id="char-name" style="color:gold">CHOOSE HERO</div>
         <div class="hp-bar" id="stat-hp">HP: --</div>
         <div class="mp-bar" id="stat-mp">MP: --</div>
     </div>
@@ -33,7 +31,7 @@
         <div id="stat-xp" style="color:#4444ff">XP: 0/100</div>
     </div>
     <div id="meta-controls">
-        <div style="color:#00ff41; font-weight:bold; margin-bottom:5px;">FLOOR: <span id="floor-num">1</span></div>
+        <div style="color:#00ff41; font-weight:bold;">FLOOR: <span id="floor-num">1</span></div>
         <div id="selection-area" style="display:flex; flex-direction:column; gap:5px; align-items:center;">
             <div id="class-select" style="display:flex; gap:5px;">
                 <button class="btn" id="btn-Mage" style="width:70px; padding:5px; color:#00d4ff;" onclick="previewClass('Mage', '#00d4ff')">MAGE</button>
@@ -50,36 +48,36 @@
     
     <div id="battle-overlay">
         <div class="menu-box">
-            <h2 id="battle-title">BATTLE!</h2>
-            <div id="battle-stats" style="margin-bottom: 15px;"></div>
+            <h2 id="battle-title">BATTLE</h2>
+            <div id="battle-stats"></div>
             <div id="main-battle-menu">
-                <button class="btn" onclick="playerAction('ATTACK')">⚔️ ATTACK</button>
-                <button class="btn" onclick="toggleSpells(true)">✨ SKILLS</button>
-                <button class="btn" onclick="playerAction('HEAL')">🧪 HEAL (15MP)</button>
+                <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
+                <button class="btn" onclick="toggleSpells(true)">SKILLS</button>
+                <button class="btn" onclick="playerAction('HEAL')">HEAL (15MP)</button>
             </div>
             <div id="spell-menu">
-                <button class="btn" style="color:orange; width: 100%; grid-column: span 3;" onclick="toggleSpells(false)">🔙 BACK</button>
+                <button class="btn" style="color:orange; grid-column: span 2;" onclick="toggleSpells(false)">BACK</button>
             </div>
-            <div id="battle-info" style="margin-top: 15px; color: gold;">Prepare!</div>
+            <div id="battle-info" style="color: gold; margin-top:10px;"></div>
         </div>
     </div>
 
     <div id="merchant-overlay">
         <div class="menu-box">
-            <h2 id="m-title" style="color:#00ff41">ETHER MERCHANT</h2>
-            <p id="m-desc">Trade 40 XP for a blessing?</p>
-            <button class="btn" id="m-str" onclick="buyStat('str')">+15 STR</button>
-            <button class="btn" id="m-int" onclick="buyStat('int')">+15 INT</button>
-            <button class="btn" id="m-con" onclick="buyStat('con')">+15 CON</button>
-            <button class="btn" style="color:red" onclick="closeMerchant()">LEAVE</button>
+            <h2 id="m-title">ETHER MERCHANT</h2>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <button class="btn" onclick="buyItem('mana')">MANA POT (25XP)</button>
+                <button class="btn" onclick="buyItem('rest')">REST (15XP)</button>
+                <button class="btn" onclick="buyStat('str')">+STR (40XP)</button>
+                <button class="btn" onclick="buyStat('int')">+INT (40XP)</button>
+                <button class="btn" onclick="buyStat('con')">+CON (40XP)</button>
+                <button class="btn" style="color:red; grid-column: span 2;" onclick="closeMerchant()">LEAVE</button>
+            </div>
         </div>
     </div>
 
     <div id="modal-overlay">
-        <div class="menu-box">
-            <h3 id="modal-title" style="color:gold">LEVEL UP</h3>
-            <div id="modal-options"></div>
-        </div>
+        <div class="menu-box" id="modal-content"></div>
     </div>
 </div>
 
@@ -89,30 +87,10 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
-    const audio = new (window.AudioContext || window.webkitAudioContext)();
-
-    function playNote(freq, type, duration) {
-        try {
-            const osc = audio.createOscillator(); const gain = audio.createGain();
-            osc.type = type; osc.frequency.setValueAtTime(freq, audio.currentTime);
-            gain.gain.setValueAtTime(0.1, audio.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + duration);
-            osc.connect(gain); gain.connect(audio.destination);
-            osc.start(); osc.stop(audio.currentTime + duration);
-        } catch(e){}
-    }
-
-    let hero = { active: false, type: '', color: 'white', x: 450, y: 250, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, shield: 0, artifacts: [] };
-    let checkpoint = null, deathGhost = null, merchantGreed = 0, monsterStunned = false, tempSelection = null;
+    
+    let hero = { active: false, type: '', color: 'white', x: 450, y: 250, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
+    let checkpoint = null, deathGhost = null, monsterStunned = false, tempSelection = null;
     let enemies = [], merchant = null, currentEnemy = null, keys = {}, gameState = "SELECT", mySpells = [], particles = [], shakeTimer = 0, frameCount = 0;
-
-    const SPELL_DATA = {
-        'FIRE': { name: 'Fireball', cost: 12 },
-        'SNIPE': { name: 'Power Shot', cost: 15 },
-        'BASH': { name: 'Shield Bash', cost: 10 },
-        'ICE': { name: 'Ice Bolt', cost: 10 },
-        'DRAIN': { name: 'Lifesteal', cost: 20 },
-        'SHIELD': { name: 'Divine Shield', cost: 25 }
-    };
 
     function addLog(msg, color) {
         const div = document.createElement('div'); div.style.color = color || 'white';
@@ -121,22 +99,19 @@
 
     function previewClass(cls, color) {
         tempSelection = { cls, color };
-        ['Mage', 'Pala', 'Arch'].forEach(c => document.getElementById('btn-'+c).style.borderColor = '#00ff41');
-        document.getElementById('btn-'+cls).style.borderColor = 'gold';
         document.getElementById('confirm-start').style.display = 'block';
-        document.getElementById('confirm-start').innerText = `START AS ${cls.toUpperCase()}`;
+        document.getElementById('confirm-start').innerText = `START ${cls.toUpperCase()}`;
     }
 
     function startGame() {
         if (!tempSelection) return;
-        if (audio.state === 'suspended') audio.resume();
         const { cls, color } = tempSelection;
         hero.type = cls; hero.color = color; hero.active = true;
         document.getElementById('selection-area').style.display = 'none';
 
-        if(cls === 'Mage') { hero.int=45; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; hero.speed=5; mySpells=['FIRE']; }
-        else if(cls === 'Arch') { hero.str=35; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; mySpells=['SNIPE']; }
-        else { hero.str=25; hero.con=40; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; mySpells=['BASH']; }
+        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; mySpells=['FIRE']; }
+        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; mySpells=['SNIPE']; }
+        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; mySpells=['BASH']; }
 
         gameState = "EXPLORE"; spawnFloor(); updateUI();
     }
@@ -145,188 +120,114 @@
         enemies = [];
         let isArena = (hero.level % 10 === 0);
         document.getElementById('floor-num').innerText = hero.level;
-
-        if (isArena) {
-            addLog(`ARENA: DEFEAT THE GUARDIAN!`, "gold");
-            enemies.push({ x: 450, y: 250, hp: 500+(hero.level*60), maxHP: 500+(hero.level*60), atk: 25+(hero.level*5), alive: true, boss: true, guardian: true });
+        if(isArena) {
+            enemies.push({ x: 450, y: 250, hp: 600+(hero.level*50), maxHP: 600+(hero.level*50), atk: 30+(hero.level*4), alive: true, boss: true, guardian: true });
         } else {
-            let count = (hero.level % 5 === 0) ? 1 : 3;
-            for(let i=0; i<count; i++) {
-                let isB = (hero.level % 5 === 0);
-                enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, hp: (isB?400:50)+(hero.level*30), maxHP: (isB?400:50)+(hero.level*30), atk: (isB?20:8)+(hero.level*4), alive: true, boss: isB });
+            for(let i=0; i<3; i++) {
+                enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), atk: 10+(hero.level*3), alive: true });
             }
         }
         merchant = { x: Math.random()*800+50, y: Math.random()*400+50, active: true };
     }
 
-    function handleDeath() {
-        if (checkpoint) {
-            deathGhost = { x: hero.x, y: hero.y, xpBonus: Math.floor(hero.nextXP * 0.25) };
-            alert(`SOUL FRAGMENT LEFT AT FLOOR ${hero.level}. Respawning...`);
-            hero = JSON.parse(JSON.stringify(checkpoint.hero));
-            mySpells = [...checkpoint.mySpells];
-            document.getElementById('battle-overlay').style.display = 'none';
-            gameState = "EXPLORE"; spawnFloor(); updateUI();
-        } else { alert("SOUL LOST."); location.reload(); }
-    }
-
     function playerAction(type) {
-        let dmg = 0; let isCrit = (hero.artifacts.includes('Eye') && Math.random() < 0.2);
+        let dmg = 0; let crit = (hero.artifacts.includes('Eye') && Math.random() < 0.2);
         if (type === 'ATTACK') {
-            dmg = Math.floor(hero.str * (hero.type === 'Arch' ? 0.9 : 0.7));
-            if(isCrit) dmg *= 2;
-            currentEnemy.hp -= dmg; spawnParticle(450, 150, isCrit ? `CRIT! -${dmg}` : `-${dmg}`, isCrit?"gold":"white");
-        } else if (type === 'BASH') {
-            hero.mp -= 10; dmg = Math.floor(hero.con * 0.8); hero.shield = 1;
-            currentEnemy.hp -= dmg; spawnParticle(450, 150, `-${dmg}`, "white");
-        } else if (type === 'SNIPE') {
-            hero.mp -= 15; dmg = Math.floor(hero.str * 2.5); currentEnemy.hp -= dmg;
-            if(Math.random() < 0.25) monsterStunned = true; spawnParticle(450, 150, `-${dmg}`, "#ffaa00");
+            dmg = Math.floor(hero.str * 0.8);
+            if(crit) dmg *= 2;
+            currentEnemy.hp -= dmg; spawnParticle(450, 150, crit ? `CRIT -${dmg}` : `-${dmg}`, crit?"gold":"white");
         } else if (type === 'HEAL') {
-            hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp + h);
-            spawnParticle(450, 350, `+${h} HP`, "#00ff41");
+            if(hero.mp < 15) return;
+            hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
         } else {
-            hero.mp -= 10; dmg = hero.int + 30; currentEnemy.hp -= dmg;
-            spawnParticle(450, 150, `-${dmg}`, "#00d4ff");
+            hero.mp -= 10; dmg = hero.int + 30; currentEnemy.hp -= dmg; spawnParticle(450, 150, `-${dmg}`, "cyan");
         }
         updateUI(); updateBattleUI(); toggleSpells(false);
-        if (currentEnemy.hp <= 0) setTimeout(victory, 600);
-        else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 800); }
+        if(currentEnemy.hp <= 0) victory(); 
+        else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 600); }
     }
 
     function monsterTurn() {
-        if (monsterStunned && !hero.artifacts.includes('Boots')) { 
-            document.getElementById('battle-info').innerText = "Stunned!"; monsterStunned = false; 
+        let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
+        
+        // MAGE MANA SHIELD: 50/50 Split Nerf
+        if(hero.type === 'Mage' && hero.mp > 0) {
+            let mpDmg = totalDmg * 0.5; let hpDmg = totalDmg * 0.5;
+            if(hero.mp < mpDmg) { hpDmg += (mpDmg - hero.mp); hero.mp = 0; }
+            else { hero.mp -= mpDmg; }
+            hero.hp -= hpDmg;
+            spawnParticle(450, 350, `SOAK ${Math.floor(mpDmg)} MP`, "cyan");
+            spawnParticle(450, 370, `-${Math.floor(hpDmg)} HP`, "red");
         } else {
-            let dmg = Math.max(5, currentEnemy.atk - (hero.con / 3));
-            if (hero.shield > 0) { hero.shield = 0; document.getElementById('battle-info').innerText = "Blocked!"; }
-            else { hero.hp -= dmg; shakeTimer = 15; spawnParticle(450, 350, `-${Math.floor(dmg)}`, "red"); }
+            hero.hp -= totalDmg;
+            spawnParticle(450, 350, `-${Math.floor(totalDmg)}`, "red");
         }
-        updateUI(); updateBattleUI();
-        if (hero.hp <= 0) handleDeath();
+        shakeTimer = 10; updateUI(); updateBattleUI();
+        if(hero.hp <= 0) handleDeath();
         else document.getElementById('battle-overlay').style.pointerEvents = 'auto';
     }
 
     function victory() {
         document.getElementById('battle-overlay').style.display = 'none';
-        currentEnemy.alive = false; 
-        if (currentEnemy.guardian) {
+        document.getElementById('battle-overlay').style.pointerEvents = 'auto';
+        currentEnemy.alive = false;
+        if(currentEnemy.guardian) {
             checkpoint = { hero: JSON.parse(JSON.stringify(hero)), mySpells: [...mySpells] };
             triggerArtifact();
         } else {
-            hero.xp += 50; if (hero.xp >= hero.nextXP) triggerLevelUp();
-            else if (enemies.filter(e => e.alive).length === 0) { hero.level++; spawnFloor(); }
+            hero.xp += 50; if(hero.xp >= hero.nextXP) triggerLevelUp();
+            else if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
         }
         gameState = "EXPLORE";
     }
 
+    function buyItem(type) {
+        if (type === 'mana' && hero.xp >= 25) {
+            hero.xp -= 25; hero.mp = Math.min(hero.maxMP, hero.mp + (hero.maxMP * 0.5));
+            addLog("MANA REFILLED", "cyan");
+        } else if (type === 'rest' && hero.xp >= 15) {
+            hero.xp -= 15; hero.hp = Math.min(hero.maxHP, hero.hp + (hero.maxHP * 0.3));
+            addLog("RESTED AT CAMP", "#00ff41");
+        }
+        updateUI();
+    }
+
+    function buyStat(s) { if(hero.xp>=40){hero.xp-=40; hero[s]+=15; updateUI(); } }
+    function closeMerchant() { document.getElementById('merchant-overlay').style.display='none'; merchant.active=false; gameState="EXPLORE"; }
     function triggerArtifact() {
-        gameState = "MENU"; document.getElementById('modal-overlay').style.display = 'flex';
-        const opt = document.getElementById('modal-options'); opt.innerHTML = '<h4>CHOOSE ARTIFACT</h4>';
-        const b1 = document.createElement('button'); b1.className = 'btn'; b1.innerText = "Leaden Boots (Stun Immune)";
-        b1.onclick = () => { hero.artifacts.push('Boots'); finalizeLevel(); };
-        const b2 = document.createElement('button'); b2.className = 'btn'; b2.innerText = "Glass Eye (+20% Crit)";
-        b2.onclick = () => { hero.artifacts.push('Eye'); finalizeLevel(); };
-        opt.append(b1, b2);
+        gameState = "MENU"; document.getElementById('modal-overlay').style.display='flex';
+        let mc = document.getElementById('modal-content');
+        mc.innerHTML = `<h3>GUARDIAN DEFEATED</h3><button class="btn" onclick="getArt('Boots')">BOOTS (Anti-Stun)</button><button class="btn" onclick="getArt('Eye')">EYE (+Crit)</button>`;
     }
-
+    function getArt(a) { hero.artifacts.push(a); finalize(); }
     function triggerLevelUp() {
-        hero.level++; hero.xp=0; hero.nextXP*=1.8; gameState="MENU";
-        document.getElementById('modal-overlay').style.display='flex';
-        const opt = document.getElementById('modal-options'); opt.innerHTML='<h4>SKILL UP</h4>';
-        Object.keys(SPELL_DATA).filter(id=>!mySpells.includes(id)).slice(0,2).forEach(id=>{
-            let b=document.createElement('button'); b.className='btn'; b.innerText=`LEARN ${id}`;
-            b.onclick=()=> {mySpells.push(id); finalizeLevel();}; opt.appendChild(b);
-        });
+        gameState = "MENU"; document.getElementById('modal-overlay').style.display='flex';
+        let mc = document.getElementById('modal-content');
+        mc.innerHTML = `<h3>LEVEL UP</h3><button class="btn" onclick="finalize()">STR/INT +20</button>`;
     }
-
-    function finalizeLevel() { 
-        hero.maxHP += 50; hero.hp = hero.maxHP; 
-        document.getElementById('modal-overlay').style.display='none'; 
-        if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
-        gameState="EXPLORE"; updateUI(); 
-    }
-
-    function buyStat(s) {
-        let canAfford = false;
-        if (merchantGreed >= 3) {
-            let cost = Math.floor(hero.maxHP * 0.3);
-            if (hero.maxHP > cost + 20) { hero.maxHP -= cost; hero.hp = Math.min(hero.hp, hero.maxHP); canAfford = true; }
-        } else if (hero.xp >= 40) { hero.xp -= 40; canAfford = true; }
-        if (canAfford) { hero[s] += 15; if(s === 'con') hero.maxHP += 30; merchantGreed++; updateUI(); closeMerchant(); }
-    }
-
-    function openMerchant() { 
-        if (merchantGreed >= 3) { document.getElementById('m-title').innerText = "BLOOD MERCHANT"; document.getElementById('m-title').style.color="red"; }
-        document.getElementById('merchant-overlay').style.display = 'flex'; gameState="MENU";
-    }
-    function closeMerchant() { document.getElementById('merchant-overlay').style.display = 'none'; merchant.active = false; gameState = "EXPLORE"; }
-
-    function updateUI() {
-        if(!hero.active) return;
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`;
-        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`;
-        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con;
-        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type}`;
-    }
-
-    function updateBattleUI() { document.getElementById('battle-stats').innerHTML = `HERO: ${Math.floor(hero.hp)} HP<br><span style="color:red">FOE: ${Math.floor(currentEnemy.hp)} HP</span>`; }
-
-    function toggleSpells(show) {
-        const sm = document.getElementById('spell-menu'), mb = document.getElementById('main-battle-menu');
-        if(!show) { mb.style.display='block'; sm.style.display='none'; return; }
-        mb.style.display='none'; sm.style.display='grid';
-        const back = sm.lastElementChild; sm.innerHTML = '';
-        mySpells.forEach(id => { const b = document.createElement('button'); b.className='btn'; b.innerText=id; b.onclick=()=>playerAction(id); sm.appendChild(b); });
-        sm.appendChild(back);
-    }
-
+    function finalize() { hero.maxHP += 50; hero.hp = hero.maxHP; hero.xp=0; hero.nextXP *= 1.5; document.getElementById('modal-overlay').style.display='none'; if(enemies.filter(e=>e.alive).length===0){hero.level++; spawnFloor();} gameState="EXPLORE"; updateUI(); }
+    function handleDeath() { if(checkpoint) { hero = JSON.parse(JSON.stringify(checkpoint.hero)); mySpells = [...checkpoint.mySpells]; document.getElementById('battle-overlay').style.display='none'; gameState="EXPLORE"; spawnFloor(); updateUI(); } else { location.reload(); } }
+    function updateUI() { if(!hero.active) return; document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`; document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con; document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type}`; }
+    function updateBattleUI() { document.getElementById('battle-stats').innerHTML = `HERO: ${Math.floor(hero.hp)} HP | FOE: ${Math.floor(currentEnemy.hp)} HP`; }
+    function toggleSpells(s) { document.getElementById('main-battle-menu').style.display = s?'none':'block'; document.getElementById('spell-menu').style.display = s?'grid':'none'; }
     function spawnParticle(x, y, text, color) { particles.push({ x, y, text, color, life: 60 }); }
+
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
     function loop() {
-        frameCount++; ctx.save();
-        if (shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
-        
-        if (hero.level % 10 === 0 && gameState === "EXPLORE") {
-            let pulse = Math.abs(Math.sin(frameCount * 0.02)) * 30;
-            ctx.fillStyle = `rgb(${20 + pulse}, 0, 0)`; 
-        } else { ctx.fillStyle = "black"; }
-        ctx.fillRect(0, 0, 900, 500);
-        
-        if(gameState === "EXPLORE") {
+        frameCount++; ctx.clearRect(0, 0, 900, 500); ctx.save();
+        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
+        if(hero.active && gameState === "EXPLORE") {
             if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
             if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
             if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
             if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
-
-            let regen = (hero.type === 'Mage') ? 0.2 : 0.1;
-            hero.mp = Math.min(hero.maxMP, hero.mp + regen);
-
-            if (deathGhost) {
-                ctx.globalAlpha = 0.3 + 0.3 * Math.sin(frameCount * 0.2); ctx.fillStyle = "white";
-                ctx.beginPath(); ctx.arc(deathGhost.x, deathGhost.y, 10, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
-                if (Math.abs(hero.x - deathGhost.x) < 20 && Math.abs(hero.y - deathGhost.y) < 20) {
-                    hero.xp += deathGhost.xpBonus; addLog("SOUL RECOVERED", "cyan"); deathGhost = null; updateUI();
-                }
-            }
-
-            enemies.forEach(en => {
-                if(en.alive) {
-                    ctx.fillStyle = en.guardian ? "gold" : "red";
-                    ctx.fillRect(en.x-15, en.y-15, en.guardian?40:30, en.guardian?40:30);
-                    if(Math.abs(hero.x-en.x)<30 && Math.abs(hero.y-en.y)<30) { currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; gameState="BATTLE"; updateBattleUI(); }
-                }
-            });
-
-            if(merchant && merchant.active) {
-                ctx.fillStyle = (merchantGreed >= 3) ? "red" : "#00ff41"; ctx.fillRect(merchant.x-15, merchant.y-15, 30, 30);
-                if(Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) openMerchant();
-            }
+            hero.mp = Math.min(hero.maxMP, hero.mp + (hero.type==='Mage'?0.2:0.1));
+            enemies.forEach(en => { if(en.alive) { ctx.fillStyle = en.guardian ? "gold" : "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30); if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; gameState="BATTLE"; updateBattleUI(); } } });
+            if(merchant && merchant.active) { ctx.fillStyle = "#00ff41"; ctx.fillRect(merchant.x-15, merchant.y-15, 30, 30); if(Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) { document.getElementById('merchant-overlay').style.display='flex'; gameState="MENU"; } }
+            ctx.fillStyle = hero.color; ctx.beginPath(); ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2); ctx.fill();
         }
-        if(hero.active) { ctx.fillStyle = hero.color; ctx.beginPath(); ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2); ctx.fill(); }
         particles.forEach((p, i) => { ctx.globalAlpha = p.life/60; ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; if(p.life<=0) particles.splice(i,1); });
         ctx.restore(); requestAnimationFrame(loop);
     }
