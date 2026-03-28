@@ -3,260 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMERALD SPIRE: STALKING SHADOWS</title>
-    <style>
-        body { background: #050505; color: #00ff41; font-family: 'Couriear New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
-        #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
-        #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; }
-        canvas { display: block; width: 100%; height: 100%; background: black; }
-        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 12px; box-sizing: border-box; }
-        #battle-overlay, #merchant-overlay, #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
-        .menu-box { border: 2px solid gold; padding: 20px; background: #111; text-align: center; width: 500px; }
-        .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 150px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; }
-        .btn:hover:not(:disabled) { background: #00ff41; color: #000; }
-        .hp-bar { color: #ff4444; font-weight: bold; } .mp-bar { color: #00d4ff; font-weight: bold; }
-    </style>
+    <title>Game Hub</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<div id="ui-layer">
-    <div>
-        <div id="char-name" style="color:gold">CHOOSE HERO</div>
-        <div class="hp-bar" id="stat-hp">HP: --</div>
-        <div class="mp-bar" id="stat-mp">MP: --</div>
-    </div>
-    <div style="font-size: 12px;">
-        <div>STR:<span id="s-str">--</span> INT:<span id="s-int">--</span> CON:<span id="s-con">--</span></div>
-        <div id="stat-xp" style="color:#4444ff">XP: 0/100</div>
-    </div>
-    <div id="meta-controls">
-        <div style="color:#00ff41; font-weight:bold;">FLOOR: <span id="floor-num">1</span></div>
-        <div id="selection-area" style="display:flex; flex-direction:column; gap:5px; align-items:center;">
-            <div id="class-select" style="display:flex; gap:5px;">
-                <button class="btn" id="btn-Mage" style="width:70px; padding:5px; color:#00d4ff;" onclick="previewClass('Mage', '#00d4ff')">MAGE</button>
-                <button class="btn" id="btn-Pala" style="width:70px; padding:5px; color:#fff;" onclick="previewClass('Pala', '#fff')">PALADIN</button>
-                <button class="btn" id="btn-Arch" style="width:70px; padding:5px; color:#ffaa00;" onclick="previewClass('Arch', '#ffaa00')">ARCHER</button>
+    <header>
+        <h1>Welcome to the Game Hub</h1>
+    </header>
+    <main>
+        <section class="game-gallery">
+            <div class="game-card">
+                <h2>Emerald Spire</h2>
+                <img src="path/to/game1.jpg" alt="Emerald Spire">
+                <p>a turn taking, top-down rpg where you have to progress through the dungeons 100 floors to survive</p>
+                <p>a turn taking, top-down rpg where you have to progress through the dungeons 100 floors to survive as king arthur, apollo, or galndalf</p>
+                <a href="https://pandagamesinc.github.io/Panda-games.com/games/emerald-spire.html">Emerald Spire</a>
             </div>
-            <button id="confirm-start" class="btn" style="display:none; width:220px; background:gold; color:black; border-color:white;" onclick="startGame()">START JOURNEY</button>
-        </div>
-    </div>
-</div>
-
-<div id="game-wrapper">
-    <canvas id="gameCanvas" width="900" height="500"></canvas>
-    
-    <div id="battle-overlay">
-        <div class="menu-box">
-            <h2 id="battle-title" style="color:red;">BATTLE</h2>
-            <div id="battle-stats"></div>
-            <div id="main-battle-menu">
-                <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
-                <button class="btn" onclick="playerAction('HEAL')">HEAL (15MP)</button>
+            <div class="game-card">
+                <h2>Dungeon Crawler</h2>
+                <img src="https://media.craiyon.com/2025-09-07/NHcNSrtkSjWKoMV0BfOD6g.webp" alt="Game 2">
+                <p>A rpg where you must fight the badly drawn monsters to survive!!!</p>
+                <a href="https://pandagamesinc.github.io/Panda-games.com/games/dungeoncrawler.html">Dungeon Crawler</a>
             </div>
-        </div>
-    </div>
-
-    <div id="merchant-overlay">
-        <div class="menu-box">
-            <h2 style="color:mediumpurple">ETHER MERCHANT</h2>
-            <p style="color:white; font-size:12px;">"Stock up before the shadows claim you..."</p>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <button class="btn" onclick="buyItem('mana')">MANA (25XP)</button>
-                <button class="btn" onclick="buyItem('rest')">REST (15XP)</button>
-                <button class="btn" onclick="buyStat('str')">+STR (40XP)</button>
-                <button class="btn" onclick="buyStat('int')">+INT (40XP)</button>
-                <button class="btn" onclick="buyStat('con')">+CON (40XP)</button>
-                <button class="btn" style="color:orange; grid-column: span 2;" onclick="closeMerchant()">RESUME EXPLORATION</button>
+             <div class="game-card">
+                <h2>Need for Speed</h2>
+                <img src="path/to/game3.jpg" alt="Need for Speed">
+                <p>A racing game, where you buy cars, explore maps, and race</p>
+                <a href="https://pandagamesinc.github.io/Panda-games.com/games/racecar.html">Need for Speed</a>
             </div>
-        </div>
-    </div>
+               <div class="game-card">
+                <h2>Game Title 4</h2>
+                <img src="" alt="Game 4">
+                <p></p>
+                <a href="https://pandagamesinc.github.io/Panda-games.com/games/.html"></a>
 
-    <div id="modal-overlay">
-        <div class="menu-box" id="modal-content"></div>
-    </div>
-</div>
-
-<div id="combat-log"></div>
-
-<script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const log = document.getElementById('combat-log');
-    
-    let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10 };
-    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {};
-    let enemies = [], merchant = null, currentEnemy = null, tempSelection = null;
-
-    window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; keys[e.key] = true; if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault(); });
-    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; keys[e.key] = false; });
-
-    function addLog(msg, color) { const div = document.createElement('div'); div.style.color = color || 'white'; div.innerText = `> ${msg}`; log.prepend(div); }
-
-    function previewClass(cls, color) {
-        tempSelection = { cls, color };
-        document.getElementById('confirm-start').style.display = 'block';
-        document.getElementById('confirm-start').innerText = `START ${cls.toUpperCase()}`;
-    }
-
-    function startGame() {
-        if (!tempSelection) return;
-        hero.type = tempSelection.cls; hero.color = tempSelection.color; hero.active = true;
-        if(hero.type === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; }
-        else if(hero.type === 'Arch') { hero.str=40; hero.speed=7; }
-        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; }
-        document.getElementById('selection-area').style.display = 'none';
-        gameState = "EXPLORE"; spawnFloor(); updateUI();
-    }
-
-    function spawnFloor() {
-        enemies = [];
-        document.getElementById('floor-num').innerText = hero.level;
-        
-        // Spawn Monsters
-        for(let i=0; i<3; i++) {
-            enemies.push({ 
-                x: Math.random()*800+50, 
-                y: Math.random()*400+50, 
-                dx: (Math.random()-0.5)*4, 
-                dy: (Math.random()-0.5)*4, 
-                hp: 60+(hero.level*20), 
-                maxHP: 60+(hero.level*20), 
-                atk: 10+(hero.level*3), 
-                alive: true, 
-                name: "Shadow" 
-            });
-        }
-
-        // Spawn Merchant immediately at the start of the floor
-        merchant = { x: 100 + Math.random()*700, y: 100 + Math.random()*300, active: true };
-        addLog("THE MERCHANT HAS ARRIVED...", "mediumpurple");
-    }
-
-    function buyItem(type) {
-        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); addLog("BOUGHT MANA", "cyan"); }
-        else if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); addLog("RESTED HP", "#00ff41"); }
-        else { addLog("NOT ENOUGH XP!", "red"); }
-        updateUI();
-    }
-
-    function buyStat(s) { 
-        if(hero.xp>=40) { 
-            hero.xp-=40; hero[s]+=10; 
-            addLog(`INCREASED ${s.toUpperCase()}`, "gold"); 
-            updateUI(); 
-        } else { addLog("NOT ENOUGH XP!", "red"); }
-    }
-
-    function closeMerchant() {
-        document.getElementById('merchant-overlay').style.display = 'none';
-        gameState = "EXPLORE";
-    }
-
-    function playerAction(type) {
-        if(type === 'ATTACK') {
-            let dmg = Math.floor(hero.str * 0.8);
-            currentEnemy.hp -= dmg; spawnParticle(currentEnemy.x, currentEnemy.y, `-${dmg}`, "white");
-        } else if(type === 'HEAL' && hero.mp >= 15) {
-            hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
-            spawnParticle(hero.x, hero.y, `+${h}`, "#00ff41");
-        }
-        updateUI(); updateBattleUI();
-        if(currentEnemy.hp <= 0) victory();
-        else setTimeout(monsterTurn, 600);
-    }
-
-    function monsterTurn() {
-        let dmg = Math.max(5, currentEnemy.atk - (hero.con/3));
-        hero.hp -= dmg; shakeTimer = 10; updateUI(); updateBattleUI();
-        if(hero.hp <= 0) location.reload();
-    }
-
-    function victory() {
-        document.getElementById('battle-overlay').style.display = 'none';
-        currentEnemy.alive = false; 
-        hero.xp += 50; 
-        
-        if(hero.xp >= hero.nextXP) {
-            hero.level++; hero.xp -= hero.nextXP; hero.nextXP = Math.floor(hero.nextXP * 1.5);
-            hero.str += 10; hero.int += 10; hero.con += 10;
-            spawnParticle(hero.x, hero.y - 40, "LEVEL UP! +10 STATS", "gold");
-        }
-
-        updateUI();
-        // Go to next floor if all dead
-        if(enemies.every(e => !e.alive)) {
-            hero.level++;
-            spawnFloor();
-        }
-        gameState = "EXPLORE";
-    }
-
-    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 60}); }
-
-    function updateUI() {
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`;
-        document.getElementById('stat-xp').innerText=`XP: ${hero.xp}/${hero.nextXP}`;
-        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con;
-        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`;
-    }
-
-    function updateBattleUI() {
-        document.getElementById('battle-stats').innerHTML = `<span style="color:cyan">YOU: ${Math.floor(hero.hp)}</span> | <span style="color:red">FOE: ${Math.floor(currentEnemy.hp)}</span>`;
-    }
-
-    function loop() {
-        ctx.clearRect(0, 0, 900, 500); ctx.save();
-        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
-
-        if(hero.active && gameState === "EXPLORE") {
-            // Movement
-            if((keys['w'] || keys['arrowup']) && hero.y > 20) hero.y -= hero.speed;
-            if((keys['s'] || keys['arrowdown']) && hero.y < 480) hero.y += hero.speed;
-            if((keys['a'] || keys['arrowleft']) && hero.x > 20) hero.x -= hero.speed;
-            if((keys['d'] || keys['arrowright']) && hero.x < 880) hero.x += hero.speed;
-
-            // Merchant Hitbox
-            if(merchant && Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) {
-                gameState = "MERCHANT"; 
-                document.getElementById('merchant-overlay').style.display = "flex";
-            }
-
-            // Enemy Hitboxes and Movement
-            enemies.forEach(en => {
-                if(en.alive) {
-                    en.x += en.dx; en.y += en.dy;
-                    if(en.x<20 || en.x>880) en.dx*=-1; if(en.y<20 || en.y>480) en.dy*=-1;
-                    
-                    ctx.fillStyle = "rgba(255,0,0,0.2)"; ctx.fillRect(en.x-20, en.y-20, 40, 40);
-                    ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30);
-
-                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) {
-                        currentEnemy=en; gameState="BATTLE"; updateBattleUI();
-                        document.getElementById('battle-overlay').style.display='flex';
-                    }
-                }
-            });
-        }
-
-        // Draw Merchant
-        if(merchant) { 
-            ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); 
-            ctx.fillStyle="white"; ctx.font="10px Courier"; ctx.fillText("MERCHANT", merchant.x-22, merchant.y+35); 
-        }
-
-        // Draw Hero
-        ctx.fillStyle = hero.color; ctx.fillRect(hero.x-15, hero.y-15, 30, 30);
-        
-        // Draw Particles
-        particles.forEach((p, i) => { 
-            ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y--); 
-            p.life--; if(p.life<=0) particles.splice(i,1); 
-        });
-        
-        ctx.restore(); requestAnimationFrame(loop);
-    }
-    loop();
-</script>
-</body>
-</html>
+            </div>
+        </section>
+    </main>
+    <footer>
