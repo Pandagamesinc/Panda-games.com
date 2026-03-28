@@ -10,132 +10,89 @@
     </div>
     <div id="save-controls">
         <div style="color:#00ff41; font-weight:bold; margin-bottom:5px;">FLOOR: <span id="floor-num">1</span></div>
-        <button class="btn" style="width:70px" onclick="openSaveMenu()">SAVE</button>
-        <button class="btn" style="width:70px" onclick="openLoadMenu()">LOAD</button>
-        <div id="class-select">
-            <button class="btn" style="width:60px" onclick="pickClass('Mage', '#00d4ff')">Mage</button>
-            <button class="btn" style="width:60px" onclick="pickClass('Pala', '#fff')">Pala</button>
+        <div id="class-select" style="display:flex; gap:2px;">
+            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Mage', '#00d4ff')">MAGE</button>
+            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Pala', '#fff')">PALA</button>
+            <button class="btn" style="width:50px; padding:5px; font-size:10px;" onclick="pickClass('Arch', '#ffaa00')">ARCHER</button>
+        </div>
+        <div id="post-select-btns" style="display:none;">
+            <button class="btn" style="width:70px" onclick="openSaveMenu()">SAVE</button>
+            <button class="btn" style="width:70px" onclick="openLoadMenu()">LOAD</button>
         </div>
     </div>
 </div>
 
 <script>
-    // ... [Keep Audio Engine from previous version] ...
+    // ... (Keep existing Audio Engine and Variables) ...
+    
+    // NEW ARCHER SPELL
+    const SPELL_DATA = {
+        'FIRE': { name: 'Fireball', cost: 12, req: 1, desc: 'Reliable Magic Dmg' },
+        'SNIPE': { name: 'Power Shot', cost: 15, req: 1, desc: 'Huge Physical Dmg' }, // Archer's starting spell
+        'ICE': { name: 'Ice Bolt', cost: 10, req: 1, desc: 'Dmg + Weaken Atk' },
+        'DRAIN': { name: 'Lifesteal', cost: 20, req: 3, desc: 'Steal HP' },
+        'SHIELD': { name: 'Divine Shield', cost: 25, req: 3, desc: 'Block Next' },
+        'METEOR': { name: 'Meteor', cost: 45, req: 6, desc: 'Massive Dmg' }
+    };
 
-    function spawnFloor() {
-        enemies = [];
-        document.getElementById('floor-num').innerText = hero.level;
+    function pickClass(cls, color) {
+        // Safe Audio Resume
+        if (audio && audio.state === 'suspended') {
+            audio.resume().catch(e => console.log("Audio blocked until interaction."));
+        }
+
+        hero.type = cls; 
+        hero.color = color; 
+        hero.active = true;
         
-        if (hero.level === 100) {
-            // THE FINAL BOSS
-            enemies.push({ 
-                x: 450, y: 250, 
-                hp: 10000 + (hero.level * 50), 
-                maxHP: 10000 + (hero.level * 50), 
-                atk: 150, 
-                alive: true, boss: true, final: true
-            });
-            addLog("THE GATEKEEPER HAS AWAKENED.", "red");
-        } else {
-            let count = (hero.level % 5 === 0) ? 1 : 3;
-            for(let i=0; i<count; i++) {
-                let isBoss = (hero.level % 5 === 0);
-                enemies.push({ 
-                    x: Math.random()*800+50, y: Math.random()*400+50, 
-                    hp: (isBoss ? 400 : 50) + (hero.level * 30), 
-                    maxHP: (isBoss ? 400 : 50) + (hero.level * 30), 
-                    atk: (isBoss ? 20 : 8) + (hero.level * 4), 
-                    alive: true, boss: isBoss, final: false
-                });
+        // Hide class select, show Save/Load
+        document.getElementById('class-select').style.display = 'none';
+        document.getElementById('post-select-btns').style.display = 'block';
+        
+        if(cls === 'Mage') { 
+            hero.int=45; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; 
+            mySpells = ['FIRE']; 
+        } else if(cls === 'Arch') {
+            hero.str=35; hero.speed=7; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80;
+            mySpells = ['SNIPE'];
+        } else { 
+            hero.str=25; hero.con=30; hero.hp=180; hero.maxHP=180; hero.mp=60; hero.maxMP=60; 
+            mySpells = [];
+        }
+
+        gameState = "EXPLORE"; 
+        spawnFloor(); 
+        updateUI();
+        
+        // Confirm with sound
+        try { playNote(440, 'square', 0.2); } catch(e) {}
+    }
+
+    // UPDATE PLAYER ACTION TO INCLUDE SNIPE
+    function playerAction(type) {
+        let dmg = 0;
+        if (type === 'ATTACK') {
+            if (Math.random() < 0.05) {
+                try { playNote(150, 'sawtooth', 0.1); } catch(e) {}
+                document.getElementById('battle-info').innerText = `MISSED!`;
+            } else {
+                try { playNote(600, 'sine', 0.1); } catch(e) {}
+                // Archer gets a slightly better physical multiplier (0.9 vs 0.7)
+                let mult = (hero.type === 'Arch') ? 0.9 : 0.7;
+                dmg = Math.floor(hero.str * mult) + Math.floor(Math.random() * 5);
+                currentEnemy.hp -= dmg;
+                spawnParticle(450, 150, `-${dmg}`, "white");
+                document.getElementById('battle-info').innerText = `You hit for ${dmg}!`;
             }
+        } else if (type === 'SNIPE') {
+            const s = SPELL_DATA['SNIPE'];
+            hero.mp -= s.cost;
+            dmg = Math.floor(hero.str * 2.5); // Archer's big hit
+            currentEnemy.hp -= dmg;
+            spawnParticle(450, 150, `-${dmg}!!!`, "#ffaa00");
+            document.getElementById('battle-info').innerText = `CRITICAL SNIPE: ${dmg}!`;
+            try { playNote(800, 'square', 0.1); } catch(e) {}
         }
-        merchant = { x: Math.random()*800+50, y: Math.random()*400+50, active: true };
+        // ... (Keep the rest of the spell logic and monsterTurn) ...
     }
-
-    function monsterTurn() {
-        let isFinal = currentEnemy.final;
-        let dmg = Math.max(5, currentEnemy.atk - (hero.con / 3));
-        
-        // Final Boss Special Move
-        if (isFinal && Math.random() < 0.2) {
-            dmg = currentEnemy.atk * 1.5; // Obliterate ignores some CON scaling
-            shakeTimer = 30;
-            playNote(100, 'sawtooth', 0.5);
-            document.getElementById('battle-info').innerText = "BOSS USES OBLITERATE!";
-        } else {
-            shakeTimer = 15;
-            playNote(200, 'sawtooth', 0.2);
-            document.getElementById('battle-info').innerText = `Monster hits for ${Math.floor(dmg)}!`; 
-        }
-
-        if (hero.shield > 0) {
-            playNote(1000, 'square', 0.1); 
-            hero.shield = 0; 
-            document.getElementById('battle-info').innerText = "Shield Shattered!";
-        } else {
-            hero.hp -= dmg;
-            spawnParticle(450, 350, `-${Math.floor(dmg)}`, "red");
-        }
-        
-        document.getElementById('battle-overlay').style.pointerEvents = 'auto';
-        updateUI(); updateBattleUI();
-        if (hero.hp <= 0) { alert("YOU WERE ERASED AT FLOOR " + hero.level); location.reload(); }
-    }
-
-    function victory() {
-        if (currentEnemy.final) {
-            addLog("THE SPIRE HAS FALLEN. YOU ARE THE CHAMPION.", "gold");
-            alert("CONGRATULATIONS! You have conquered the Emerald Spire.");
-            // Reset to NG+
-            hero.level++;
-            hero.str += 100; hero.int += 100;
-        }
-        
-        playNote(523, 'sine', 0.1); setTimeout(()=>playNote(659,'sine',0.1),100);
-        document.getElementById('battle-overlay').style.display = 'none';
-        currentEnemy.alive = false; 
-        hero.xp += currentEnemy.boss ? 150 : 50;
-        
-        if (hero.xp >= hero.nextXP) triggerLevelUp();
-        else if (enemies.filter(e => e.alive).length === 0) { 
-            hero.level++; 
-            spawnFloor(); 
-            addLog(`Ascending to Floor ${hero.level}...`, "cyan");
-        }
-        gameState = "EXPLORE";
-    }
-
-    function loop() {
-        frameCount++;
-        ctx.save();
-        if (shakeTimer > 0) {
-            ctx.translate(Math.random()*10-5, Math.random()*10-5);
-            shakeTimer--;
-        }
-        ctx.fillStyle = "black"; ctx.fillRect(0, 0, 900, 500);
-        
-        if(gameState === "EXPLORE") {
-            // ... [Keep existing movement keys logic] ...
-
-            enemies.forEach(en => {
-                if(!en.alive) return;
-                let pulse = en.boss ? 6 * Math.sin(frameCount * 0.1) : 0;
-                // Final Boss is White/Gold
-                ctx.fillStyle = en.final ? "white" : (en.boss ? "gold" : "red");
-                ctx.fillRect(en.x - (en.boss?20:12) - pulse/2, en.y - (en.boss?20:12) - pulse/2, (en.boss?40:24) + pulse, (en.boss?40:24) + pulse);
-                
-                if(Math.abs(hero.x - en.x) < 25 && Math.abs(hero.y - en.y) < 25) startBattle(en);
-            });
-
-            if(merchant && merchant.active) {
-                let mPulse = 3 * Math.sin(frameCount * 0.05);
-                ctx.fillStyle = "#00ff41"; ctx.fillRect(merchant.x-15-mPulse/2, merchant.y-15-mPulse/2, 30+mPulse, 30+mPulse);
-                if(Math.abs(hero.x - merchant.x) < 30 && Math.abs(hero.y - merchant.y) < 30) openMerchant();
-            }
-        }
-        // ... [Keep Hero and Particle rendering] ...
-        ctx.restore();
-        requestAnimationFrame(loop);
-    }
-    loop();
 </script>
