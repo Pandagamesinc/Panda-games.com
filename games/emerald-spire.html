@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>EMERALD SPIRE: UNIVERSAL EDITION</title>
+    <title>EMERALD SPIRE: COMBAT EDITION</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #ui-layer { width: 900px; display: grid; grid-template-columns: 1.2fr 1fr 0.8fr 1fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
         #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; }
         canvas { display: block; width: 100%; height: 100%; }
-        #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; }
+        #combat-log { width: 900px; height: 120px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 13px; box-sizing: border-box; line-height: 1.4; }
         
         #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
         .menu-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 3px solid #00ff41; padding: 20px; text-align: center; width: 400px; }
@@ -39,10 +39,10 @@
         <div id="stat-gold" style="color:gold">GOLD: 0</div>
     </div>
     <div id="class-select">
-        <button onclick="pickClass('Mage', '#00d4ff')">Blue (Mage)</button>
-        <button onclick="pickClass('Paladin', '#ffffff')">White (Paladin)</button>
-        <button onclick="pickClass('Rogue', '#ff00ff')">Purple (Rogue)</button>
-        <button onclick="pickClass('Archer', '#44ff44')">Green (Archer)</button>
+        <button onclick="pickClass('Mage', '#00d4ff')">Mage</button>
+        <button onclick="pickClass('Paladin', '#ffffff')">Paladin</button>
+        <button onclick="pickClass('Rogue', '#ff00ff')">Rogue</button>
+        <button onclick="pickClass('Archer', '#44ff44')">Archer</button>
     </div>
 </div>
 
@@ -57,7 +57,7 @@
 </div>
 
 <div id="combat-log">
-    <div style="color:#888">Choose a class above to start...</div>
+    <div style="color:#888">Select a hero to begin...</div>
 </div>
 
 <script>
@@ -65,21 +65,22 @@
     const ctx = canvas.getContext('2d');
     const log = document.getElementById('combat-log');
 
-    let hero = { active: false, type: '', color: 'white', x: 450, y: 250, size: 20, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, gold: 0, floor: 1, str: 10, dex: 10, con: 10, int: 10, wis: 10 };
+    let hero = { active: false, type: '', color: 'white', x: 450, y: 250, size: 15, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, gold: 0, floor: 1, str: 10, dex: 10, con: 10, int: 10, wis: 10 };
     let enemies = [];
     let keys = {};
     let gameState = "SELECT";
+    let flashTicks = 0;
 
     function pickClass(cls, color) {
         hero.type = cls; hero.color = color; hero.active = true;
         document.getElementById('class-select').style.display = 'none';
-        if(cls === 'Mage') { hero.int=20; hero.hp=70; hero.mp=120; }
-        if(cls === 'Paladin') { hero.str=18; hero.con=18; hero.hp=140; hero.mp=40; }
-        if(cls === 'Rogue') { hero.dex=20; hero.hp=90; hero.mp=60; }
-        if(cls === 'Archer') { hero.dex=20; hero.wis=15; hero.hp=100; hero.mp=70; }
+        if(cls === 'Mage') { hero.int=20; hero.hp=75; hero.mp=120; }
+        if(cls === 'Paladin') { hero.str=18; hero.con=18; hero.hp=150; hero.mp=40; }
+        if(cls === 'Rogue') { hero.dex=20; hero.hp=100; hero.mp=60; }
+        if(cls === 'Archer') { hero.dex=20; hero.wis=15; hero.hp=110; hero.mp=70; }
         hero.maxHP = hero.hp; hero.maxMP = hero.mp;
         gameState = "EXPLORE";
-        addLog(`Started as ${cls}. Use Arrows to move!`, "gold");
+        addLog(`Level 1 ${cls} entered the Spire.`, "gold");
         spawnFloor();
         updateUI();
     }
@@ -97,7 +98,8 @@
         for(let i=0; i<count; i++) {
             enemies.push({
                 x: Math.random()*800+50, y: Math.random()*400+50,
-                hp: 20 + (hero.floor * 15), atk: 5 + (hero.floor * 2),
+                hp: 30 + (hero.floor * 15), maxHP: 30 + (hero.floor * 15),
+                atk: 6 + (hero.floor * 2),
                 alive: true, color: '#ff4444'
             });
         }
@@ -105,30 +107,55 @@
 
     function startCombat(en) {
         gameState = "COMBAT";
-        let heroAtk = (hero.str * 1) + (hero.int * 0.5);
-        let fight = setInterval(() => {
-            en.hp -= heroAtk;
-            hero.hp -= Math.max(1, en.atk - (hero.con / 2));
+        addLog(`Encountered a monster! Fight!`, "red");
+
+        let fightInterval = setInterval(() => {
+            // Combat Math
+            let dmgToEn = Math.max(5, (hero.str + (hero.int*0.5)) - (Math.random() * 5));
+            let dmgToHero = Math.max(2, (en.atk) - (hero.con / 3));
+
+            en.hp -= dmgToEn;
+            hero.hp -= dmgToHero;
+            flashTicks = 5; // Triggers the visual "flash" in the loop
+
+            addLog(`You hit for ${Math.floor(dmgToEn)}. Monster hits for ${Math.floor(dmgToHero)}.`, "#aaa");
             updateUI();
+
             if (en.hp <= 0) {
-                clearInterval(fight); en.alive = false;
-                hero.xp += 25; hero.gold += 10;
-                addLog(`Enemy Defeated! +25 XP`, "#44ff44");
+                clearInterval(fightInterval);
+                en.alive = false;
+                hero.xp += 30; hero.gold += 15;
+                addLog(`Victory! +30 XP and 15 Gold.`, "#44ff44");
+                
                 if (hero.xp >= hero.nextXP) triggerLevelUp();
-                if (enemies.filter(e => e.alive).length === 0) { hero.floor++; spawnFloor(); addLog(`Floor ${hero.floor} reached!`, "gold"); }
+                
+                if (enemies.filter(e => e.alive).length === 0) {
+                    hero.floor++;
+                    spawnFloor();
+                    addLog(`Floor ${hero.floor} cleared. Moving down...`, "gold");
+                }
                 gameState = "EXPLORE";
             }
-            if (hero.hp <= 0) { clearInterval(fight); alert("GAME OVER"); location.reload(); }
-        }, 500);
+
+            if (hero.hp <= 0) {
+                clearInterval(fightInterval);
+                alert(`YOU DIED on Floor ${hero.floor}.`);
+                location.reload();
+            }
+        }, 700); // 0.7 seconds per "swing" so you can see it happen
     }
 
     function triggerLevelUp() {
-        hero.level++; hero.xp = 0; hero.nextXP *= 1.5;
+        hero.level++; hero.xp = 0; hero.nextXP = Math.floor(hero.nextXP * 1.6);
         gameState = "MENU";
         document.getElementById('modal-overlay').style.display = 'block';
         const container = document.getElementById('modal-options');
         container.innerHTML = '';
-        [{l: "STR+5", a: () => hero.str += 5}, {l: "VIT+20", a: () => {hero.maxHP += 20; hero.hp = hero.maxHP;}}].forEach(opt => {
+        
+        [{l: "STR +5 (Dmg)", a: () => hero.str += 5}, 
+         {l: "CON +5 (HP)", a: () => {hero.con += 5; hero.maxHP += 40; hero.hp = hero.maxHP;}},
+         {l: "INT +5 (MP)", a: () => {hero.int += 5; hero.maxMP += 30; hero.mp = hero.maxMP;}}
+        ].forEach(opt => {
             let b = document.createElement('button'); b.className = 'option'; b.innerText = opt.l;
             b.onclick = () => { opt.a(); document.getElementById('modal-overlay').style.display = 'none'; gameState = "EXPLORE"; updateUI(); };
             container.appendChild(b);
@@ -158,21 +185,36 @@
             if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
             if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
             if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
-
-            enemies.forEach(en => {
-                if(!en.alive) return;
-                ctx.fillStyle = en.color;
-                ctx.fillRect(en.x, en.y, 25, 25); // Draw Red Square for Monsters
-                if(Math.abs(hero.x - en.x) < 25 && Math.abs(hero.y - en.y) < 25) startCombat(en);
-            });
         }
 
+        // Draw Monsters
+        enemies.forEach(en => {
+            if(!en.alive) return;
+            
+            // Flash red/white when hit
+            ctx.fillStyle = (gameState === "COMBAT" && flashTicks > 0) ? "white" : en.color;
+            ctx.fillRect(en.x - 12, en.y - 12, 25, 25);
+            
+            // Mini health bar above monster
+            ctx.fillStyle = "#333";
+            ctx.fillRect(en.x - 15, en.y - 25, 30, 4);
+            ctx.fillStyle = "red";
+            ctx.fillRect(en.x - 15, en.y - 25, (en.hp / en.maxHP) * 30, 4);
+
+            if(gameState === "EXPLORE" && Math.abs(hero.x - en.x) < 25 && Math.abs(hero.y - en.y) < 25) {
+                startCombat(en);
+            }
+        });
+
+        // Draw Hero
         if(hero.active) {
-            ctx.fillStyle = hero.color;
+            ctx.fillStyle = (gameState === "COMBAT" && flashTicks > 0) ? "red" : hero.color;
             ctx.beginPath();
-            ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2); // Draw Circle for Hero
+            ctx.arc(hero.x, hero.y, 15, 0, Math.PI*2);
             ctx.fill();
+            if(flashTicks > 0) flashTicks--;
         }
+
         requestAnimationFrame(loop);
     }
     loop();
