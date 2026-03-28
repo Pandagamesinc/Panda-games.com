@@ -49,7 +49,7 @@
     <div id="battle-overlay">
         <div class="menu-box">
             <h2 id="battle-title" style="color:red;">BATTLE</h2>
-            <div id="battle-stats" style="margin-bottom:10px; border-bottom:1px solid #444; padding-bottom:5px; font-size: 14px;"></div>
+            <div id="battle-stats" style="margin-bottom:10px; border-bottom:1px solid #444; padding-bottom:5px;"></div>
             <div id="main-battle-menu">
                 <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
                 <button class="btn" onclick="toggleSpells(true)">SKILLS</button>
@@ -121,17 +121,17 @@
 
     function drawHero(x, y) {
         ctx.save();
-        if (hero.type === 'Mage') { // GANDALF
+        if (hero.type === 'Mage') {
             ctx.fillStyle = "#888"; ctx.fillRect(x-10, y, 20, 25);
             ctx.fillStyle = "white"; ctx.fillRect(x-8, y-5, 16, 15);
             ctx.fillStyle = "#555"; ctx.beginPath(); ctx.moveTo(x-15, y-5); ctx.lineTo(x+15, y-5); ctx.lineTo(x, y-25); ctx.fill();
             ctx.strokeStyle = "brown"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x+12, y-5); ctx.lineTo(x+18, y+20); ctx.stroke();
-        } else if (hero.type === 'Pala') { // ARTHUR
+        } else if (hero.type === 'Pala') {
             ctx.fillStyle = "#aaa"; ctx.fillRect(x-12, y-5, 24, 30);
             ctx.fillStyle = "gold"; ctx.fillRect(x-10, y-15, 20, 5); ctx.fillRect(x-10, y-20, 4, 10); ctx.fillRect(x+6, y-20, 4, 10);
             ctx.fillStyle = "red"; ctx.fillRect(x-15, y, 5, 25);
             ctx.strokeStyle = "white"; ctx.beginPath(); ctx.moveTo(x+14, y+20); ctx.lineTo(x+14, y-10); ctx.stroke();
-        } else if (hero.type === 'Arch') { // APOLLO
+        } else if (hero.type === 'Arch') {
             ctx.fillStyle = "#f3e5ab"; ctx.fillRect(x-10, y-5, 20, 30);
             ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(x, y-10, 10, 0, Math.PI, true); ctx.fill();
             ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
@@ -143,7 +143,6 @@
         enemies = [];
         let isArena = (hero.level % 10 === 0);
         document.getElementById('floor-num').innerText = hero.level;
-        
         if(isArena) {
             enemies.push({ 
                 name: BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)],
@@ -174,27 +173,16 @@
             if(hero.mp < 15) return;
             hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
             spawnParticle(450, 350, `+${h} HP`, "#00ff41");
-        } else {
-            hero.mp -= 10; dmg = hero.int + 30; currentEnemy.hp -= dmg; spawnParticle(450, 150, `-${dmg}`, "cyan");
         }
-        updateUI(); updateBattleUI(); toggleSpells(false);
+        updateUI(); updateBattleUI(); 
         if(currentEnemy.hp <= 0) victory(); 
         else { document.getElementById('battle-overlay').style.pointerEvents = 'none'; setTimeout(monsterTurn, 600); }
     }
 
     function monsterTurn() {
         let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
-        if(hero.type === 'Mage' && hero.mp > 0) {
-            let mpDmg = totalDmg * 0.5; let hpDmg = totalDmg * 0.5;
-            if(hero.mp < mpDmg) { hpDmg += (mpDmg - hero.mp); hero.mp = 0; }
-            else { hero.mp -= mpDmg; }
-            hero.hp -= hpDmg;
-            spawnParticle(450, 350, `SOAK ${Math.floor(mpDmg)} MP`, "cyan");
-            spawnParticle(450, 370, `-${Math.floor(hpDmg)} HP`, "red");
-        } else {
-            hero.hp -= totalDmg;
-            spawnParticle(450, 350, `-${Math.floor(totalDmg)}`, "red");
-        }
+        hero.hp -= totalDmg;
+        spawnParticle(450, 350, `-${Math.floor(totalDmg)}`, "red");
         shakeTimer = 10; updateUI(); updateBattleUI();
         if(hero.hp <= 0) handleDeath();
         else document.getElementById('battle-overlay').style.pointerEvents = 'auto';
@@ -205,40 +193,86 @@
         document.getElementById('battle-overlay').style.display = 'none';
         document.getElementById('battle-overlay').style.pointerEvents = 'auto';
         currentEnemy.alive = false;
-        if(currentEnemy.guardian) {
-            checkpoint = { hero: JSON.parse(JSON.stringify(hero)), mySpells: [...mySpells] };
-            triggerArtifact();
-        } else {
+        if(currentEnemy.guardian) triggerArtifact();
+        else {
             hero.xp += 50; if(hero.xp >= hero.nextXP) triggerLevelUp();
             else if(enemies.filter(e=>e.alive).length === 0) { hero.level++; spawnFloor(); }
         }
         gameState = "EXPLORE";
     }
 
-    function updateEnemyAI() {
-        enemies.forEach(en => {
-            if(!en.alive) return;
-            if(en.guardian) {
-                let dx = hero.x - en.x, dy = hero.y - en.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
-                if(dist < 250) {
-                    en.x += (dx/dist) * 1.5;
-                    en.y += (dy/dist) * 1.5;
-                }
-            } else {
-                en.x += en.vx; en.y += en.vy;
-                if(en.x < 20 || en.x > 880) en.vx *= -1;
-                if(en.y < 20 || en.y > 480) en.vy *= -1;
-            }
-        });
+    function updateUI() { 
+        if(!hero.active) return; 
+        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
+        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
+        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`; 
+        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con; 
+        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`; 
+    }
+    
+    function updateBattleUI() { 
+        let hLabel = hero.type === 'Mage' ? 'GANDALF' : (hero.type === 'Pala' ? 'ARTHUR' : 'APOLLO');
+        document.getElementById('battle-title').innerText = `BATTLE: ${currentEnemy.name.toUpperCase()}`;
+        document.getElementById('battle-stats').innerHTML = `
+            <div style="font-size: 16px; margin-bottom: 8px; color: gold;">VS ${currentEnemy.name}</div>
+            <span style="color:cyan">${hLabel}: ${Math.floor(hero.hp)} HP</span> | 
+            <span style="color:red">FOE: ${Math.floor(currentEnemy.hp)} HP</span>
+        `; 
     }
 
+    function loop() {
+        ctx.clearRect(0, 0, 900, 500); ctx.save();
+        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
+        
+        if(hero.active && (gameState === "EXPLORE" || gameState === "BATTLE")) {
+            if(gameState === "EXPLORE") {
+                if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
+                if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
+                if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
+                if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
+                
+                enemies.forEach(en => { 
+                    if(en.alive) { 
+                        // Draw Monster Body
+                        ctx.fillStyle = en.guardian ? "gold" : "red"; 
+                        ctx.fillRect(en.x-15, en.y-15, 30, 30); 
+                        
+                        // Draw Monster Name
+                        ctx.fillStyle = "white"; ctx.font = "10px Courier"; 
+                        ctx.fillText(en.name, en.x-20, en.y-32);
+
+                        // --- NEW: DRAW MINI HEALTH BAR ---
+                        ctx.fillStyle = "#333"; ctx.fillRect(en.x-15, en.y-28, 30, 4);
+                        ctx.fillStyle = "#f00"; ctx.fillRect(en.x-15, en.y-28, (en.hp/en.maxHP)*30, 4);
+                        
+                        if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
+                            currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; 
+                            gameState="BATTLE"; updateBattleUI(); 
+                        } 
+                    } 
+                });
+            } else if (gameState === "BATTLE") {
+                ctx.strokeStyle = "white"; ctx.strokeRect(currentEnemy.x-17, currentEnemy.y-17, 34, 34);
+                ctx.fillStyle = currentEnemy.guardian ? "gold" : "red"; ctx.fillRect(currentEnemy.x-15, currentEnemy.y-15, 30, 30);
+            }
+            drawHero(hero.x, hero.y);
+        }
+        
+        particles.forEach((p, i) => { 
+            ctx.globalAlpha = p.life/60; ctx.fillStyle = p.color; 
+            ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; 
+            if(p.life<=0) particles.splice(i,1); 
+        });
+        
+        ctx.restore(); requestAnimationFrame(loop);
+    }
+    
+    // Supporting global functions for merchant and death (not in script but required by HTML)
     function buyItem(type) {
         if (type === 'mana' && hero.xp >= 25) { hero.xp -= 25; hero.mp = Math.min(hero.maxMP, hero.mp + (hero.maxMP * 0.5)); addLog("MANA REFILLED", "cyan"); }
         else if (type === 'rest' && hero.xp >= 15) { hero.xp -= 15; hero.hp = Math.min(hero.maxHP, hero.hp + (hero.maxHP * 0.3)); addLog("RESTED AT CAMP", "#00ff41"); }
         updateUI();
     }
-
     function buyStat(s) { if(hero.xp>=40){hero.xp-=40; hero[s]+=15; updateUI(); } }
     function closeMerchant() { document.getElementById('merchant-overlay').style.display='none'; merchant.active=false; gameState="EXPLORE"; }
     function triggerArtifact() {
@@ -253,66 +287,9 @@
         mc.innerHTML = `<h3>LEVEL UP</h3><button class="btn" onclick="finalize()">STR/INT +20</button>`;
     }
     function finalize() { hero.maxHP += 50; hero.hp = hero.maxHP; hero.xp=0; hero.nextXP *= 1.5; document.getElementById('modal-overlay').style.display='none'; if(enemies.filter(e=>e.alive).length===0){hero.level++; spawnFloor();} gameState="EXPLORE"; updateUI(); }
-    function handleDeath() { if(checkpoint) { hero = JSON.parse(JSON.stringify(checkpoint.hero)); document.getElementById('battle-overlay').style.display='none'; gameState="EXPLORE"; spawnFloor(); updateUI(); } else { location.reload(); } }
-    
-    function updateUI() { 
-        if(!hero.active) return; 
-        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
-        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
-        document.getElementById('stat-xp').innerText=`XP: ${Math.floor(hero.xp)}/${Math.floor(hero.nextXP)}`; 
-        document.getElementById('s-str').innerText=hero.str; document.getElementById('s-int').innerText=hero.int; document.getElementById('s-con').innerText=hero.con; 
-        document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`; 
-    }
-    
-    function updateBattleUI() { 
-        let hLabel = hero.type === 'Mage' ? 'GANDALF' : (hero.type === 'Pala' ? 'ARTHUR' : 'APOLLO');
-        document.getElementById('battle-title').innerText = `BATTLE: ${currentEnemy.name.toUpperCase()}`;
-        document.getElementById('battle-stats').innerHTML = `<span style="color:cyan">${hLabel}: ${Math.floor(hero.hp)} HP</span> | <span style="color:red">${currentEnemy.name}: ${Math.floor(currentEnemy.hp)} HP</span>`; 
-    }
-    
+    function handleDeath() { location.reload(); }
     function toggleSpells(s) { document.getElementById('main-battle-menu').style.display = s?'none':'block'; document.getElementById('spell-menu').style.display = s?'grid':'none'; }
-    function spawnParticle(x, y, text, color) { particles.push({ x, y, text, color, life: 60 }); }
 
-    window.addEventListener('keydown', e => keys[e.code] = true);
-    window.addEventListener('keyup', e => keys[e.code] = false);
-
-    function loop() {
-        ctx.clearRect(0, 0, 900, 500); ctx.save();
-        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
-        
-        if(hero.active && gameState === "EXPLORE") {
-            if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
-            if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
-            if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
-            if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
-            
-            hero.mp = Math.min(hero.maxMP, hero.mp + (hero.type==='Mage'?0.2:0.1));
-            updateEnemyAI();
-
-            enemies.forEach(en => { 
-                if(en.alive) { 
-                    ctx.fillStyle = en.guardian ? "gold" : "red"; 
-                    ctx.fillRect(en.x-15, en.y-15, 30, 30); 
-                    ctx.fillStyle = "white"; ctx.font = "10px Courier"; ctx.fillText(en.name, en.x-20, en.y-20);
-                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) { 
-                        currentEnemy=en; document.getElementById('battle-overlay').style.display='flex'; 
-                        gameState="BATTLE"; updateBattleUI(); 
-                    } 
-                } 
-            });
-            
-            if(merchant && merchant.active) { 
-                ctx.fillStyle = "#00ff41"; ctx.fillRect(merchant.x-15, merchant.y-15, 30, 30); 
-                ctx.fillStyle = "white"; ctx.fillText("MERCHANT", merchant.x-20, merchant.y-20);
-                if(Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) { 
-                    document.getElementById('merchant-overlay').style.display='flex'; gameState="MENU"; 
-                } 
-            }
-            drawHero(hero.x, hero.y);
-        }
-        particles.forEach((p, i) => { ctx.globalAlpha = p.life/60; ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); p.y--; p.life--; if(p.life<=0) particles.splice(i,1); });
-        ctx.restore(); requestAnimationFrame(loop);
-    }
     loop();
 </script>
 </body>
