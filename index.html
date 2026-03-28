@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMERALD SPIRE: STALKING SHADOWS</title>
+    <title>EMERALD SPIRE: FIXED MOVEMENT</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
@@ -21,7 +21,7 @@
 
 <div id="ui-layer">
     <div>
-        <div id="char-name" style="color:gold">CHOOSE HERO</div>
+        <div id="char-name" style="color:gold">SELECT HERO</div>
         <div class="hp-bar" id="stat-hp">HP: --</div>
         <div class="mp-bar" id="stat-mp">MP: --</div>
     </div>
@@ -49,10 +49,8 @@
         <div class="menu-box">
             <h2 id="battle-title" style="color:red;">BATTLE</h2>
             <div id="battle-stats"></div>
-            <div id="main-battle-menu">
-                <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
-                <button class="btn" onclick="playerAction('HEAL')">HEAL (15MP)</button>
-            </div>
+            <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
+            <button class="btn" onclick="playerAction('HEAL')">HEAL</button>
         </div>
     </div>
 
@@ -78,17 +76,20 @@
     const log = document.getElementById('combat-log');
     
     let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10 };
-    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {};
+    let gameState = "SELECT", particles = [], keys = {};
     let enemies = [], merchant = null, currentEnemy = null, tempSelection = null;
 
+    // --- STRONGER INPUT SYSTEM ---
     window.addEventListener('keydown', (e) => { 
-        keys[e.key.toLowerCase()] = true; 
         keys[e.key] = true; 
+        keys[e.key.toLowerCase()] = true; 
+        keys[e.code] = true; // Uses KeyW, ArrowUp, etc.
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight", " "].includes(e.key)) e.preventDefault(); 
     });
     window.addEventListener('keyup', (e) => { 
-        keys[e.key.toLowerCase()] = false; 
         keys[e.key] = false; 
+        keys[e.key.toLowerCase()] = false; 
+        keys[e.code] = false; 
     });
 
     function addLog(msg, color) { const div = document.createElement('div'); div.style.color = color || 'white'; div.innerText = `> ${msg}`; log.prepend(div); }
@@ -109,66 +110,44 @@
 
     function spawnFloor() {
         enemies = [];
-        document.getElementById('floor-num').innerText = hero.level;
         for(let i=0; i<3; i++) {
-            enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, dx: (Math.random()-0.5)*5, dy: (Math.random()-0.5)*5, hp: 60+(hero.level*15), maxHP: 60+(hero.level*15), atk: 10+(hero.level*2), alive: true });
+            enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, dx: (Math.random()-0.5)*5, dy: (Math.random()-0.5)*5, hp: 60+(hero.level*15), alive: true });
         }
         merchant = { x: 450, y: 250 };
-        addLog("FLOOR " + hero.level + " ENTERED.", "mediumpurple");
+        addLog("FLOOR " + hero.level + " READY.", "mediumpurple");
     }
 
     function buyItem(type) {
-        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); addLog("REPLENISHED MANA", "cyan"); }
-        else if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); addLog("RECOVERED HP", "#ff4444"); }
-        else { addLog("NOT ENOUGH XP!", "red"); }
+        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); }
+        if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); }
         updateUI();
     }
 
     function buyStat(s) { 
         let cost = (s === 'speed') ? 50 : 40;
-        if(hero.xp >= cost) { 
-            hero.xp -= cost; 
-            hero[s] += (s === 'speed' ? 2 : 10); 
-            addLog("UPGRADED " + s.toUpperCase(), "gold");
-            updateUI(); 
-        } else { addLog("NOT ENOUGH XP!", "red"); }
+        if(hero.xp >= cost) { hero.xp -= cost; hero[s] += (s === 'speed' ? 2 : 10); updateUI(); }
     }
 
     function closeMerchant() { 
         document.getElementById('merchant-overlay').style.display = 'none'; 
         gameState = "EXPLORE"; 
-        // Move hero slightly away so they don't immediately re-trigger
-        hero.y += 40;
+        hero.y += 50; // Push hero out of the merchant's box
     }
 
     function playerAction(type) {
         let dmg = Math.floor(hero.str * 0.8);
-        if(type === 'ATTACK') { currentEnemy.hp -= dmg; spawnParticle(currentEnemy.x, currentEnemy.y, `-${dmg}`, "white"); }
-        else if(type === 'HEAL' && hero.mp >= 15) { hero.mp -= 15; hero.hp = Math.min(hero.maxHP, hero.hp+50); spawnParticle(hero.x, hero.y, "+50", "#00ff41"); }
-        updateUI(); updateBattleUI();
-        if(currentEnemy.hp <= 0) victory(); else setTimeout(monsterTurn, 600);
-    }
-
-    function monsterTurn() {
-        let dmg = Math.max(5, currentEnemy.atk - (hero.con/3));
-        hero.hp -= dmg; shakeTimer = 10; updateUI(); updateBattleUI();
-        if(hero.hp <= 0) location.reload();
-    }
-
-    function victory() {
-        document.getElementById('battle-overlay').style.display = 'none';
-        currentEnemy.alive = false; hero.xp += 50; 
-        if(hero.xp >= hero.nextXP) {
-            hero.level++; hero.xp -= hero.nextXP; hero.nextXP *= 1.5;
-            hero.str += 10; hero.int += 10; hero.con += 10;
-            spawnParticle(hero.x, hero.y, "LEVEL UP!", "gold");
+        if(type === 'ATTACK') currentEnemy.hp -= dmg;
+        if(currentEnemy.hp <= 0) {
+            document.getElementById('battle-overlay').style.display = 'none';
+            currentEnemy.alive = false; hero.xp += 50; 
+            if(enemies.every(e => !e.alive)) { hero.level++; spawnFloor(); }
+            gameState = "EXPLORE";
+        } else {
+            hero.hp -= 10; // Simple monster attack
         }
         updateUI();
-        if(enemies.every(e => !e.alive)) { hero.level++; spawnFloor(); }
-        gameState = "EXPLORE";
+        if(hero.hp <= 0) location.reload();
     }
-
-    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 60}); }
 
     function updateUI() {
         document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}`;
@@ -178,58 +157,39 @@
         document.getElementById('char-name').innerText=`LVL ${hero.level} ${hero.type.toUpperCase()}`;
     }
 
-    function updateBattleUI() {
-        document.getElementById('battle-stats').innerHTML = `<span style="color:cyan">YOU: ${Math.floor(hero.hp)}</span> | <span style="color:red">FOE: ${Math.floor(currentEnemy.hp)}</span>`;
-    }
-
     function loop() {
         ctx.clearRect(0, 0, 900, 500);
-        if(shakeTimer > 0) { ctx.save(); ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
 
-        // DRAW MERCHANT (Always visible unless floor cleared)
-        if(merchant) { ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); }
+        if(hero.active && gameState === "EXPLORE") {
+            // --- UPDATED MOVEMENT CHECK ---
+            if((keys['w'] || keys['ArrowUp'] || keys['KeyW']) && hero.y > 20) hero.y -= hero.speed;
+            if((keys['s'] || keys['ArrowDown'] || keys['KeyS']) && hero.y < 480) hero.y += hero.speed;
+            if((keys['a'] || keys['ArrowLeft'] || keys['KeyA']) && hero.x > 20) hero.x -= hero.speed;
+            if((keys['d'] || keys['ArrowRight'] || keys['KeyD']) && hero.x < 880) hero.x += hero.speed;
 
-        // DRAW ENEMIES (Static when paused)
-        enemies.forEach(en => {
-            if(en.alive) {
-                if(gameState === "EXPLORE") {
+            enemies.forEach(en => {
+                if(en.alive) {
                     en.x += en.dx; en.y += en.dy;
                     if(en.x<20 || en.x>880) en.dx*=-1; if(en.y<20 || en.y>480) en.dy*=-1;
+                    ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30);
+                    if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) {
+                        currentEnemy=en; gameState="BATTLE";
+                        document.getElementById('battle-overlay').style.display='flex';
+                        keys = {}; // Clear movement
+                    }
                 }
-                ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30);
-                
-                // Only check collision if not paused
-                if(gameState === "EXPLORE" && Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) {
-                    currentEnemy=en; gameState="BATTLE"; updateBattleUI();
-                    document.getElementById('battle-overlay').style.display='flex';
-                }
-            }
-        });
+            });
 
-        if(hero.active) {
-            if(gameState === "EXPLORE") {
-                // HERO MOVEMENT
-                if((keys['w'] || keys['ArrowUp']) && hero.y > 20) hero.y -= hero.speed;
-                if((keys['s'] || keys['ArrowDown']) && hero.y < 480) hero.y += hero.speed;
-                if((keys['a'] || keys['ArrowLeft']) && hero.x > 20) hero.x -= hero.speed;
-                if((keys['d'] || keys['ArrowRight']) && hero.x < 880) hero.x += hero.speed;
-
-                // MERCHANT INTERACT
-                if(merchant && Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) {
-                    gameState = "MERCHANT"; 
-                    document.getElementById('merchant-overlay').style.display = "flex";
-                    keys = {}; // Stop movement momentum
-                }
+            if(merchant && Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) {
+                gameState = "MERCHANT"; 
+                document.getElementById('merchant-overlay').style.display = "flex";
+                keys = {}; // Clear movement
             }
-            
-            // DRAW HERO
-            ctx.fillStyle = hero.color; ctx.fillRect(hero.x-15, hero.y-15, 30, 30);
         }
+
+        if(merchant) { ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); }
+        ctx.fillStyle = hero.color; ctx.fillRect(hero.x-15, hero.y-15, 30, 30);
         
-        // DRAW PARTICLES (Keep them moving for style)
-        particles.forEach((p, i) => { ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y--); p.life--; if(p.life<=0) particles.splice(i,1); });
-        
-        if(shakeTimer > 0) ctx.restore();
         requestAnimationFrame(loop);
     }
     loop();
