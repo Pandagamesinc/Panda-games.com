@@ -1,163 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS Racing: Player vs AI</title>
+    <title>JS Grand Prix: Circuit Pro</title>
     <style>
-        body { background: #1a1a1a; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; }
-        canvas { background: #333; border: 4px solid #fff; display: block; margin: 20px auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .menu { background: rgba(0,0,0,0.9); padding: 25px; border-radius: 15px; display: inline-block; border: 2px solid #555; margin-top: 20px; }
-        button { padding: 12px 24px; margin: 8px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; transition: 0.2s; }
-        button:hover { transform: scale(1.05); background: #eee; }
-        .shop-btn { background: #ffd700; color: #000; }
-        #ui { font-size: 24px; font-weight: bold; padding: 20px; color: #00ff41; }
-        .controls-hint { color: #aaa; font-size: 14px; margin-top: 10px; }
+        body { background: #111; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        canvas { background: #222; border: 4px solid #444; display: block; margin: 0 auto; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        #ui { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 10px 25px; border-radius: 30px; border: 2px solid #00ff41; font-weight: bold; font-size: 20px; z-index: 10; }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        💰 Coins: <span id="coinCount">0</span> | 🏁 Lap: <span id="lapCount">1</span>/3
-    </div>
-    
-    <div id="menu" class="menu">
-        <h2>CHOOSE A TRACK</h2>
-        <button onclick="startRace(0)" style="background: #555; color: white;">City Circuit</button>
-        <button onclick="startRace(1)" style="background: #edc9af; color: #000;">Desert Drift</button>
-        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
-        <h2>VEHICLE SHOP</h2>
-        <button id="buySport" class="shop-btn" onclick="buyCar(1, 100)">Unlock Sport Car (100 Coins)</button>
-        <div class="controls-hint">Use ARROW KEYS to drive</div>
-    </div>
+<div id="ui">🏁 Lap: <span id="lap">1</span>/3 | 💰 Coins: <span id="coins">0</span></div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <canvas id="raceCanvas" width="400" height="600"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-    <script>
-        const canvas = document.getElementById('raceCanvas');
-        const ctx = canvas.getContext('2d');
+// --- WORLD SETTINGS ---
+const WORLD_HEIGHT = 4000; // Even longer track!
+const TRACK_WIDTH = 350;
 
-        // --- GAME DATA ---
-        let coins = 0;
-        let currentLap = 1;
-        let gameState = "MENU"; 
+let gameState = { coins: 0, lap: 1, cameraY: 0, playing: true };
+let player = { x: 400, y: 3800, speed: 0, maxSpeed: 10, accel: 0.25, friction: 0.97, color: "#00f2ff" };
+let ai = { x: 350, y: 3800, speed: 7.2, color: "#ffeb3b" };
+let keys = {};
 
-        const maps = [
-            { name: "City", color: "#444", finishLine: "white", aiSpeed: 3.5 },
-            { name: "Desert", color: "#edc9af", finishLine: "#8b4513", aiSpeed: 2.8 }
-        ];
+window.onkeydown = e => keys[e.code] = true;
+window.onkeyup = e => keys[e.code] = false;
 
-        const cars = [
-            { name: "Starter", speed: 5, color: "#ff4444", owned: true },
-            { name: "Sport", speed: 9, color: "#00f2ff", owned: false }
-        ];
+// --- CURVE LOGIC ---
+// This function calculates where the track center is at any given Y position
+function getTrackX(y) {
+    return 400 + Math.sin(y / 400) * 120; 
+}
 
-        let player = { x: 220, y: 500, currentCar: cars[0], map: maps[0] };
-        let opponent = { x: 140, y: 500, speed: 3.5, color: "#ffeb3b", laps: 1 };
-        let keys = {};
+function update() {
+    if (!gameState.playing) return;
 
-        // --- INPUTS ---
-        window.addEventListener("keydown", e => keys[e.code] = true);
-        window.addEventListener("keyup", e => keys[e.code] = false);
+    // Movement & Physics
+    if (keys["ArrowUp"]) player.speed = Math.min(player.speed + player.accel, player.maxSpeed);
+    if (keys["ArrowDown"]) player.speed -= player.accel;
+    player.speed *= player.friction;
+    player.y -= player.speed;
 
-        function startRace(mapIndex) {
-            player.map = maps[mapIndex];
-            player.y = 500;
-            player.x = 220;
-            opponent.y = 500;
-            opponent.x = 140;
-            opponent.laps = 1;
-            opponent.speed = maps[mapIndex].aiSpeed; // Set AI difficulty based on map
-            currentLap = 1;
-            gameState = "RACING";
-            document.getElementById('menu').style.display = "none";
-            updateUI();
-            requestAnimationFrame(gameLoop);
+    if (keys["ArrowLeft"]) player.x -= 6;
+    if (keys["ArrowRight"]) player.x += 6;
+
+    // AI Follows the curve perfectly
+    ai.y -= ai.speed;
+    ai.x = getTrackX(ai.y) - 30;
+
+    // Off-Road Penalty
+    let trackCenter = getTrackX(player.y);
+    if (player.x < trackCenter - TRACK_WIDTH/2 || player.x > trackCenter + TRACK_WIDTH/2) {
+        player.speed *= 0.92; // Slow down on grass
+    }
+
+    // Camera Follow
+    gameState.cameraY = player.y - 400;
+
+    // Finish Line
+    if (player.y < 150) {
+        if (gameState.lap < 3) {
+            gameState.lap++;
+            player.y = 3800; ai.y = 3800;
+            document.getElementById('lap').innerText = gameState.lap;
+        } else {
+            alert("GRAND PRIX CHAMPION! +200 Coins");
+            gameState.coins += 200;
+            location.reload();
         }
+    }
+}
 
-        function buyCar(index, price) {
-            if (coins >= price && !cars[index].owned) {
-                coins -= price;
-                cars[index].owned = true;
-                player.currentCar = cars[index];
-                alert("🏎️ Sport Car Unlocked!");
-                updateUI();
-            } else if (cars[index].owned) {
-                player.currentCar = cars[index];
-                alert("Equipped Sport Car!");
-            } else {
-                alert("❌ Not enough coins!");
-            }
-        }
+function drawMinimap() {
+    const miniW = 80;
+    const miniH = 150;
+    const miniX = canvas.width - 100;
+    const miniY = 50;
 
-        function updateUI() {
-            document.getElementById('coinCount').innerText = coins;
-            document.getElementById('lapCount').innerText = currentLap;
-        }
+    // Background
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(miniX, miniY, miniW, miniH);
+    ctx.strokeStyle = "#555";
+    ctx.strokeRect(miniX, miniY, miniW, miniH);
 
-        // --- GAME ENGINE ---
-        function gameLoop() {
-            if (gameState !== "RACING") return;
+    // Scaling factor (World to Minimap)
+    const scale = miniH / WORLD_HEIGHT;
 
-            // 1. Draw Track & Finish Line
-            ctx.fillStyle = player.map.color;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = player.map.finishLine;
-            ctx.fillRect(0, 50, canvas.width, 15);
+    // AI Dot
+    ctx.fillStyle = ai.color;
+    ctx.beginPath();
+    ctx.arc(miniX + miniW/2, miniY + (ai.y * scale), 4, 0, Math.PI*2);
+    ctx.fill();
 
-            // 2. Player Movement
-            if (keys["ArrowUp"]) player.y -= player.currentCar.speed;
-            if (keys["ArrowDown"]) player.y += player.currentCar.speed;
-            if (keys["ArrowLeft"] && player.x > 0) player.x -= 5;
-            if (keys["ArrowRight"] && player.x < canvas.width - 40) player.x += 5;
+    // Player Dot
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.arc(miniX + miniW/2, miniY + (player.y * scale), 5, 0, Math.PI*2);
+    ctx.fill();
+}
 
-            // 3. AI Opponent Logic
-            opponent.y -= opponent.speed;
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 4. Lap & Victory Logic
-            // --- Player Lap Check ---
-            if (player.y < 50) {
-                if (currentLap < 3) {
-                    currentLap++;
-                    player.y = 540; 
-                    updateUI();
-                } else {
-                    endGame("VICTORY! You earned 50 coins.", 50);
-                }
-            }
+    ctx.save();
+    ctx.translate(0, -gameState.cameraY);
 
-            // --- AI Lap Check ---
-            if (opponent.y < 50) {
-                if (opponent.laps < 3) {
-                    opponent.laps++;
-                    opponent.y = 540;
-                } else {
-                    endGame("DEFEAT! The AI finished first.", 10);
-                }
-            }
+    // Draw Grass
+    ctx.fillStyle = "#1a4a1a";
+    ctx.fillRect(0, -500, canvas.width, WORLD_HEIGHT + 1000);
 
-            // 5. Render Cars
-            // AI Car
-            ctx.fillStyle = opponent.color;
-            ctx.fillRect(opponent.x, opponent.y, 40, 60);
-            ctx.strokeStyle = "black";
-            ctx.strokeRect(opponent.x, opponent.y, 40, 60);
+    // Draw Track in segments to create curves
+    for (let i = 0; i < WORLD_HEIGHT; i += 20) {
+        ctx.fillStyle = (Math.floor(i/100) % 2 === 0) ? "#333" : "#3a3a3a"; // Alternating asphalt
+        let tx = getTrackX(i);
+        ctx.fillRect(tx - TRACK_WIDTH/2, i, TRACK_WIDTH, 22);
+    }
 
-            // Player Car
-            ctx.fillStyle = player.currentCar.color;
-            ctx.fillRect(player.x, player.y, 40, 60);
-            ctx.strokeRect(player.x, player.y, 40, 60);
+    // Finish Line
+    ctx.fillStyle = "white";
+    let fX = getTrackX(150);
+    for(let i=0; i<10; i++) ctx.fillRect(fX - TRACK_WIDTH/2 + (i*35), 150, 20, 20);
 
-            requestAnimationFrame(gameLoop);
-        }
+    // Entities
+    ctx.fillStyle = ai.color;
+    ctx.fillRect(ai.x, ai.y, 30, 50);
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, 30, 50);
 
-        function endGame(message, reward) {
-            gameState = "MENU";
-            coins += reward;
-            alert(message);
-            document.getElementById('menu').style.display = "inline-block";
-            updateUI();
-        }
-    </script>
+    ctx.restore();
+
+    drawMinimap();
+    update();
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
 </body>
 </html>
