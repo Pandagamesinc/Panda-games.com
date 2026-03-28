@@ -90,14 +90,21 @@
     
     let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
     let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
-    let enemies = [], merchant = null, currentEnemy = null;
+    let enemies = [], currentEnemy = null;
 
     const MONSTER_NAMES = ["Void Slime", "Spire Sentinel", "Shadow Knight", "Cursed Remnant", "Static Wraith"];
     const BOSS_NAMES = ["Emerald Watcher", "The Spire Core", "Void Arbiter"];
 
-    // --- KEYBOARD LISTENERS (FIXES MOVEMENT) ---
-    window.addEventListener('keydown', (e) => { keys[e.key] = true; });
-    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+    // --- INPUT SYSTEM (WASD + ARROWS) ---
+    window.addEventListener('keydown', (e) => { 
+        keys[e.key.toLowerCase()] = true; 
+        keys[e.key] = true; 
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+    });
+    window.addEventListener('keyup', (e) => { 
+        keys[e.key.toLowerCase()] = false; 
+        keys[e.key] = false; 
+    });
 
     function addLog(msg, color) {
         const div = document.createElement('div'); div.style.color = color || 'white';
@@ -140,7 +147,6 @@
             ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(x, y-10, 10, 0, Math.PI, true); ctx.fill();
             ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
         }
-        // Mini Mana bar for Hero
         ctx.fillStyle = "#333"; ctx.fillRect(x-15, y+28, 30, 3);
         ctx.fillStyle = "cyan"; ctx.fillRect(x-15, y+28, (hero.mp/hero.maxMP)*30, 3);
         ctx.restore();
@@ -153,7 +159,7 @@
         if(isArena) {
             enemies.push({ 
                 name: BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)],
-                x: 450, y: 100, hp: 600+(hero.level*50), maxHP: 600+(hero.level*50), 
+                x: 450, y: 150, hp: 600+(hero.level*50), maxHP: 600+(hero.level*50), 
                 atk: 30+(hero.level*4), alive: true, guardian: true
             });
         } else {
@@ -169,14 +175,14 @@
     }
 
     function playerAction(type) {
-        let dmg = 0; let crit = (hero.artifacts.includes('Eye') && Math.random() < 0.2);
+        let dmg = 0;
         if (type === 'ATTACK') {
-            dmg = Math.floor(hero.str * 0.8); if(crit) dmg *= 2;
-            currentEnemy.hp -= dmg; spawnParticle(450, 150, crit ? `CRIT -${dmg}` : `-${dmg}`, crit?"gold":"white");
+            dmg = Math.floor(hero.str * 0.8);
+            currentEnemy.hp -= dmg; spawnParticle(currentEnemy.x, currentEnemy.y, `-${dmg}`, "white");
         } else if (type === 'HEAL') {
             if(hero.mp < 15) return;
             hero.mp -= 15; let h = 40 + hero.int; hero.hp = Math.min(hero.maxHP, hero.hp+h);
-            spawnParticle(450, 350, `+${h} HP`, "#00ff41");
+            spawnParticle(hero.x, hero.y, `+${h} HP`, "#00ff41");
         }
         updateUI(); updateBattleUI(); 
         if(currentEnemy.hp <= 0) victory(); 
@@ -185,7 +191,7 @@
 
     function monsterTurn() {
         let totalDmg = Math.max(5, currentEnemy.atk - (hero.con/3));
-        hero.hp -= totalDmg; spawnParticle(450, 350, `-${Math.floor(totalDmg)}`, "red");
+        hero.hp -= totalDmg; spawnParticle(hero.x, hero.y, `-${Math.floor(totalDmg)}`, "red");
         shakeTimer = 10; updateUI(); updateBattleUI();
         if(hero.hp <= 0) location.reload();
         else document.getElementById('battle-overlay').style.pointerEvents = 'auto';
@@ -226,12 +232,12 @@
         ctx.clearRect(0, 0, 900, 500); ctx.save();
         if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
         
-        if(hero.active && (gameState === "EXPLORE" || gameState === "BATTLE")) {
+        if(hero.active) {
             if(gameState === "EXPLORE") {
-                if(keys['ArrowUp'] && hero.y > 20) hero.y -= hero.speed;
-                if(keys['ArrowDown'] && hero.y < 480) hero.y += hero.speed;
-                if(keys['ArrowLeft'] && hero.x > 20) hero.x -= hero.speed;
-                if(keys['ArrowRight'] && hero.x < 880) hero.x += hero.speed;
+                if((keys['w'] || keys['ArrowUp']) && hero.y > 20) hero.y -= hero.speed;
+                if((keys['s'] || keys['ArrowDown']) && hero.y < 480) hero.y += hero.speed;
+                if((keys['a'] || keys['ArrowLeft']) && hero.x > 20) hero.x -= hero.speed;
+                if((keys['d'] || keys['ArrowRight']) && hero.x < 880) hero.x += hero.speed;
                 
                 enemies.forEach(en => { 
                     if(en.alive) { 
@@ -240,7 +246,6 @@
                         ctx.fillStyle = "white"; ctx.font = "10px Courier"; 
                         ctx.fillText(en.name, en.x-20, en.y-32);
 
-                        // Monster Mini Health Bar (Green to Red color shift)
                         let hpPerc = en.hp / en.maxHP;
                         ctx.fillStyle = "#333"; ctx.fillRect(en.x-15, en.y-28, 30, 4);
                         ctx.fillStyle = `rgb(${255 * (1 - hpPerc)}, ${255 * hpPerc}, 0)`;
