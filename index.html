@@ -1,47 +1,119 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Hub</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <header>
-        <h1>Welcome to the Game Hub</h1>
-    </header>
-    <main>
-        <section class="game-gallery">
-            <div class="game-card">
-                <h2>Emerald Spire</h2>
-                <img src="path/to/game1.jpg" alt="Emerald Spire">
-                <p>a turn taking, top-down rpg where you have to progress through the dungeons 100 floors to survive as king arthur, apollo, or galndalf</p>
-                <a href="https://pandagamesinc.github.io/Panda-games.com/games/emerald-spire.html">Emerald Spire</a>
-            </div>
-            <div class="game-card">
-                <h2>Dungeon Crawler</h2>
-                <img src="https://media.craiyon.com/2025-09-07/NHcNSrtkSjWKoMV0BfOD6g.webp" alt="Game 2">
-                <p>A rpg where you must fight the badly drawn monsters to survive!!!</p>
-                <a href="https://pandagamesinc.github.io/Panda-games.com/games/dungeoncrawler.html">Dungeon Crawler</a>
-            </div>
-             <div class="game-card">
-                <h2>Need for Speed</h2>
-                <img src="path/to/game3.jpg" alt="Need for Speed">
-                <p>A racing game, where you buy cars, explore maps, and race</p>
-                <a href="https://pandagamesinc.github.io/Panda-games.com/games/racecar.html">Need for Speed</a>
-            </div>
-               <div class="game-card">
-                <h2>Game Title 4</h2>
-                <img src="" alt="Game 4">
-                <p></p>
-                <a href="https://pandagamesinc.github.io/Panda-games.com/games/.html"></a>
-           
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2026 Pandagamesinc</p>
-    </footer>
-</body>
-</html>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const log = document.getElementById('combat-log');
+    
+    let hero = { active: false, type: '', color: 'white', x: 450, y: 400, speed: 5, hp: 100, maxHP: 100, mp: 50, maxMP: 50, xp: 0, nextXP: 100, level: 1, str: 10, int: 10, con: 10, artifacts: [] };
+    let gameState = "SELECT", particles = [], shakeTimer = 0, keys = {}, tempSelection = null;
+    let enemies = [], currentEnemy = null;
 
+    const MONSTER_NAMES = ["Void Slime", "Spire Sentinel", "Shadow Knight", "Cursed Remnant", "Static Wraith"];
+    const BOSS_NAMES = ["Emerald Watcher", "The Spire Core", "Void Arbiter"];
+
+    // --- ENHANCED MOVEMENT ENGINE ---
+    // Tracks multiple keys for diagonal movement and WASD support
+    window.addEventListener('keydown', (e) => { 
+        keys[e.key.toLowerCase()] = true; // Support lowercase for WASD
+        keys[e.key] = true;               // Support Arrow keys
+    });
+    window.addEventListener('keyup', (e) => { 
+        keys[e.key.toLowerCase()] = false; 
+        keys[e.key] = false; 
+    });
+
+    function addLog(msg, color) {
+        const div = document.createElement('div'); 
+        div.style.color = color || 'white';
+        div.innerText = `> ${msg}`; 
+        log.prepend(div);
+    }
+
+    function previewClass(cls, color) {
+        tempSelection = { cls, color };
+        const startBtn = document.getElementById('confirm-start');
+        startBtn.style.display = 'block';
+        startBtn.innerText = `START AS ${cls.toUpperCase()}`;
+    }
+
+    function startGame() {
+        if (!tempSelection) return;
+        const { cls, color } = tempSelection;
+        hero.type = cls; hero.color = color; hero.active = true;
+        document.getElementById('selection-area').style.display = 'none';
+
+        if(cls === 'Mage') { hero.int=50; hero.hp=80; hero.maxHP=80; hero.mp=200; hero.maxMP=200; }
+        else if(cls === 'Arch') { hero.str=40; hero.hp=110; hero.maxHP=110; hero.mp=80; hero.maxMP=80; hero.speed=7; }
+        else { hero.str=30; hero.con=45; hero.hp=200; hero.maxHP=200; hero.mp=60; hero.maxMP=60; hero.speed=4; }
+
+        gameState = "EXPLORE"; spawnFloor(); updateUI();
+        addLog(`Dungeon Level ${hero.level} entered.`, "gray");
+    }
+
+    function drawHero(x, y) {
+        ctx.save();
+        if (hero.type === 'Mage') {
+            ctx.fillStyle = "#888"; ctx.fillRect(x-10, y, 20, 25);
+            ctx.fillStyle = "white"; ctx.fillRect(x-8, y-5, 16, 15);
+            ctx.fillStyle = "#555"; ctx.beginPath(); ctx.moveTo(x-15, y-5); ctx.lineTo(x+15, y-5); ctx.lineTo(x, y-25); ctx.fill();
+        } else if (hero.type === 'Pala') {
+            ctx.fillStyle = "#aaa"; ctx.fillRect(x-12, y-5, 24, 30);
+            ctx.fillStyle = "gold"; ctx.fillRect(x-10, y-15, 20, 5);
+        } else if (hero.type === 'Arch') {
+            ctx.fillStyle = "#f3e5ab"; ctx.fillRect(x-10, y-5, 20, 30);
+            ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x+15, y+5, 15, -Math.PI/2, Math.PI/2); ctx.stroke();
+        }
+        ctx.fillStyle = "cyan"; ctx.fillRect(x-15, y+28, (hero.mp/hero.maxMP)*30, 3);
+        ctx.restore();
+    }
+
+    function spawnFloor() {
+        enemies = [];
+        document.getElementById('floor-num').innerText = hero.level;
+        for(let i=0; i<3; i++) {
+            enemies.push({ 
+                name: MONSTER_NAMES[Math.floor(Math.random()*MONSTER_NAMES.length)],
+                x: Math.random()*800+50, y: Math.random()*300+100, 
+                hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), 
+                atk: 10+(hero.level*3), alive: true 
+            });
+        }
+    }
+
+    function loop() {
+        ctx.clearRect(0, 0, 900, 500); 
+        ctx.save();
+        if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
+        
+        if(hero.active && (gameState === "EXPLORE")) {
+            // MOVEMENT LOGIC (WASD + ARROWS)
+            if((keys['w'] || keys['ArrowUp']) && hero.y > 60) hero.y -= hero.speed;
+            if((keys['s'] || keys['ArrowDown']) && hero.y < 460) hero.y += hero.speed;
+            if((keys['a'] || keys['ArrowLeft']) && hero.x > 40) hero.x -= hero.speed;
+            if((keys['d'] || keys['ArrowRight']) && hero.x < 860) hero.x += hero.speed;
+            
+            enemies.forEach(en => { 
+                if(en.alive) { 
+                    ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30); 
+                    if(Math.abs(hero.x-en.x)<30 && Math.abs(hero.y-en.y)<30) { 
+                        currentEnemy=en; 
+                        document.getElementById('battle-overlay').style.display='flex'; 
+                        gameState="BATTLE"; 
+                    } 
+                } 
+            });
+            drawHero(hero.x, hero.y);
+        } else if (gameState === "BATTLE") {
+            drawHero(hero.x, hero.y); // Keep drawing hero during battle
+        }
+        
+        ctx.restore(); 
+        requestAnimationFrame(loop);
+    }
+    loop();
+    
+    // UI Helpers (simplified for brevity)
+    function updateUI() { 
+        document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`; 
+        document.getElementById('stat-mp').innerText=`MP: ${Math.floor(hero.mp)}/${hero.maxMP}`; 
+    }
+</script>
