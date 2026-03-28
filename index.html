@@ -59,13 +59,14 @@
     <div id="merchant-overlay">
         <div class="menu-box">
             <h2 style="color:mediumpurple">ETHER MERCHANT</h2>
+            <p style="color:white; font-size:12px;">"Stock up before the shadows claim you..."</p>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <button class="btn" onclick="buyItem('mana')">MANA (25XP)</button>
                 <button class="btn" onclick="buyItem('rest')">REST (15XP)</button>
                 <button class="btn" onclick="buyStat('str')">+STR (40XP)</button>
                 <button class="btn" onclick="buyStat('int')">+INT (40XP)</button>
                 <button class="btn" onclick="buyStat('con')">+CON (40XP)</button>
-                <button class="btn" style="color:red; grid-column: span 2;" onclick="closeMerchant()">NEXT FLOOR</button>
+                <button class="btn" style="color:orange; grid-column: span 2;" onclick="closeMerchant()">RESUME EXPLORATION</button>
             </div>
         </div>
     </div>
@@ -108,48 +109,47 @@
     }
 
     function spawnFloor() {
-        enemies = []; merchant = null;
+        enemies = [];
         document.getElementById('floor-num').innerText = hero.level;
+        
+        // Spawn Monsters
         for(let i=0; i<3; i++) {
-            enemies.push({ x: Math.random()*800+50, y: Math.random()*400+50, dx: (Math.random()-0.5)*4, dy: (Math.random()-0.5)*4, hp: 60+(hero.level*20), maxHP: 60+(hero.level*20), atk: 10+(hero.level*3), alive: true, name: "Shadow" });
+            enemies.push({ 
+                x: Math.random()*800+50, 
+                y: Math.random()*400+50, 
+                dx: (Math.random()-0.5)*4, 
+                dy: (Math.random()-0.5)*4, 
+                hp: 60+(hero.level*20), 
+                maxHP: 60+(hero.level*20), 
+                atk: 10+(hero.level*3), 
+                alive: true, 
+                name: "Shadow" 
+            });
         }
-    }
 
-    function spawnMerchant() {
-        merchant = { x: 450, y: 250, active: true };
-        addLog("A MERCHANT HAS APPEARED", "mediumpurple");
-    }
-
-    function handleLevelUp() {
-        hero.level++;
-        hero.xp -= hero.nextXP;
-        hero.nextXP = Math.floor(hero.nextXP * 1.5);
-        
-        // Boost each stat by 10
-        hero.str += 10;
-        hero.int += 10;
-        hero.con += 10;
-        
-        // Full Heal on Level Up
-        hero.hp = hero.maxHP;
-        hero.mp = hero.maxMP;
-
-        addLog(`LEVEL UP! LVL ${hero.level} REACHED!`, "gold");
-        spawnParticle(hero.x, hero.y - 40, "LEVEL UP! +10 ALL STATS", "gold");
-        updateUI();
+        // Spawn Merchant immediately at the start of the floor
+        merchant = { x: 100 + Math.random()*700, y: 100 + Math.random()*300, active: true };
+        addLog("THE MERCHANT HAS ARRIVED...", "mediumpurple");
     }
 
     function buyItem(type) {
-        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); }
-        if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); }
+        if(type==='mana' && hero.xp>=25) { hero.xp-=25; hero.mp=Math.min(hero.maxMP, hero.mp+50); addLog("BOUGHT MANA", "cyan"); }
+        else if(type==='rest' && hero.xp>=15) { hero.xp-=15; hero.hp=Math.min(hero.maxHP, hero.hp+50); addLog("RESTED HP", "#00ff41"); }
+        else { addLog("NOT ENOUGH XP!", "red"); }
         updateUI();
     }
 
-    function buyStat(s) { if(hero.xp>=40) { hero.xp-=40; hero[s]+=10; updateUI(); }}
+    function buyStat(s) { 
+        if(hero.xp>=40) { 
+            hero.xp-=40; hero[s]+=10; 
+            addLog(`INCREASED ${s.toUpperCase()}`, "gold"); 
+            updateUI(); 
+        } else { addLog("NOT ENOUGH XP!", "red"); }
+    }
 
     function closeMerchant() {
         document.getElementById('merchant-overlay').style.display = 'none';
-        hero.level++; spawnFloor(); gameState = "EXPLORE";
+        gameState = "EXPLORE";
     }
 
     function playerAction(type) {
@@ -177,15 +177,21 @@
         hero.xp += 50; 
         
         if(hero.xp >= hero.nextXP) {
-            handleLevelUp();
+            hero.level++; hero.xp -= hero.nextXP; hero.nextXP = Math.floor(hero.nextXP * 1.5);
+            hero.str += 10; hero.int += 10; hero.con += 10;
+            spawnParticle(hero.x, hero.y - 40, "LEVEL UP! +10 STATS", "gold");
         }
 
         updateUI();
-        if(enemies.every(e => !e.alive)) spawnMerchant();
+        // Go to next floor if all dead
+        if(enemies.every(e => !e.alive)) {
+            hero.level++;
+            spawnFloor();
+        }
         gameState = "EXPLORE";
     }
 
-    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 90}); }
+    function spawnParticle(x, y, text, color) { particles.push({x, y, text, color, life: 60}); }
 
     function updateUI() {
         document.getElementById('stat-hp').innerText=`HP: ${Math.floor(hero.hp)}/${hero.maxHP}`;
@@ -204,21 +210,27 @@
         if(shakeTimer > 0) { ctx.translate(Math.random()*10-5, Math.random()*10-5); shakeTimer--; }
 
         if(hero.active && gameState === "EXPLORE") {
+            // Movement
             if((keys['w'] || keys['arrowup']) && hero.y > 20) hero.y -= hero.speed;
             if((keys['s'] || keys['arrowdown']) && hero.y < 480) hero.y += hero.speed;
             if((keys['a'] || keys['arrowleft']) && hero.x > 20) hero.x -= hero.speed;
             if((keys['d'] || keys['arrowright']) && hero.x < 880) hero.x += hero.speed;
 
+            // Merchant Hitbox
             if(merchant && Math.abs(hero.x-merchant.x)<30 && Math.abs(hero.y-merchant.y)<30) {
-                gameState = "MERCHANT"; document.getElementById('merchant-overlay').style.display = "flex";
+                gameState = "MERCHANT"; 
+                document.getElementById('merchant-overlay').style.display = "flex";
             }
 
+            // Enemy Hitboxes and Movement
             enemies.forEach(en => {
                 if(en.alive) {
                     en.x += en.dx; en.y += en.dy;
                     if(en.x<20 || en.x>880) en.dx*=-1; if(en.y<20 || en.y>480) en.dy*=-1;
-                    ctx.fillStyle = "rgba(255,0,0,0.3)"; ctx.fillRect(en.x-18, en.y-18, 36, 36);
+                    
+                    ctx.fillStyle = "rgba(255,0,0,0.2)"; ctx.fillRect(en.x-20, en.y-20, 40, 40);
                     ctx.fillStyle = "red"; ctx.fillRect(en.x-15, en.y-15, 30, 30);
+
                     if(Math.abs(hero.x-en.x)<25 && Math.abs(hero.y-en.y)<25) {
                         currentEnemy=en; gameState="BATTLE"; updateBattleUI();
                         document.getElementById('battle-overlay').style.display='flex';
@@ -227,18 +239,19 @@
             });
         }
 
-        if(merchant) { ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); ctx.fillStyle="white"; ctx.fillText("SHOP", merchant.x-12, merchant.y+5); }
+        // Draw Merchant
+        if(merchant) { 
+            ctx.fillStyle="mediumpurple"; ctx.fillRect(merchant.x-20, merchant.y-20, 40, 40); 
+            ctx.fillStyle="white"; ctx.font="10px Courier"; ctx.fillText("MERCHANT", merchant.x-22, merchant.y+35); 
+        }
 
         // Draw Hero
         ctx.fillStyle = hero.color; ctx.fillRect(hero.x-15, hero.y-15, 30, 30);
         
         // Draw Particles
-        ctx.font = "14px Courier New";
         particles.forEach((p, i) => { 
-            ctx.fillStyle = p.color; 
-            ctx.fillText(p.text, p.x - (p.text.length * 4), p.y--); 
-            p.life--; 
-            if(p.life<=0) particles.splice(i,1); 
+            ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y--); 
+            p.life--; if(p.life<=0) particles.splice(i,1); 
         });
         
         ctx.restore(); requestAnimationFrame(loop);
