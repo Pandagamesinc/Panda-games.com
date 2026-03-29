@@ -3,48 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMERALD SPIRE: UNIVERSAL CONTROLS</title>
+    <title>EMERALD SPIRE: FULL RESTORATION</title>
     <style>
         body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #ui-layer { width: 900px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; padding: 15px; background: #111; border: 2px solid #444; margin-top: 5px; box-sizing: border-box; }
         #game-wrapper { position: relative; width: 900px; height: 500px; border: 4px solid #00ff41; margin-top: 10px; background: #000; cursor: crosshair; }
         canvas { display: block; width: 100%; height: 100%; background: black; }
         #combat-log { width: 900px; height: 100px; background: #000; border: 2px solid #444; margin-top: 5px; overflow-y: auto; padding: 10px; font-size: 12px; box-sizing: border-box; }
-        #battle-overlay, #merchant-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
+        #battle-overlay, #merchant-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 20; flex-direction: column; align-items: center; justify-content: center; }
         .menu-box { border: 2px solid gold; padding: 20px; background: #111; text-align: center; width: 500px; }
         .btn { background: #222; color: #00ff41; border: 1px solid #00ff41; padding: 10px; margin: 4px; width: 150px; cursor: pointer; font-family: 'Courier New'; font-weight: bold; }
         .btn:hover:not(:disabled) { background: #00ff41; color: #000; }
-        #debug-keys { position: absolute; bottom: 10px; right: 10px; color: #444; font-size: 10px; pointer-events: none; }
+        .hp-bar { color: #ff4444; font-weight: bold; } .mp-bar { color: #00d4ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div>
-        <div id="char-name" style="color:gold">SELECT HERO</div>
-        <div id="stat-hp" style="color:#ff4444">HP: --</div>
-        <div id="stat-mp" style="color:#00d4ff">MP: --</div>
+        <div id="char-name" style="color:gold; font-size: 18px;">CHOOSE HERO</div>
+        <div class="hp-bar" id="stat-hp">HP: --</div>
+        <div class="mp-bar" id="stat-mp">MP: --</div>
     </div>
     <div style="font-size: 12px;">
         <div>STR:<span id="s-str">--</span> INT:<span id="s-int">--</span> CON:<span id="s-con">--</span></div>
         <div id="stat-xp" style="color:#4444ff">XP: 0/100</div>
     </div>
     <div id="meta-controls">
-        <div style="font-weight:bold;">FLOOR: <span id="floor-num">1</span></div>
-        <div id="selection-area">
-            <button class="btn" style="width:70px" onclick="startGame('Mage', '#00d4ff')">MAGE</button>
-            <button class="btn" style="width:70px" onclick="startGame('Pala', '#fff')">PALA</button>
-            <button class="btn" style="width:70px" onclick="startGame('Arch', '#ffaa00')">ARCH</button>
-        </div>
-    </div>
-</div>
-
-<div id="game-wrapper">
-    <canvas id="gameCanvas" width="900" height="500"></canvas>
-    <div id="debug-keys">LAST KEY: NONE</div>
-    
-    <div id="battle-overlay">
-        <div class="menu-box">
-            <h2 style="color:red;">BATTLE</h2>
-            <button class="btn" onclick="playerAction('ATTACK')">ATTACK</button>
-            <button class="btn
+        <div style="color:#00ff41; font-weight:bold;">FLOOR: <span id="floor-num">1</span></div>
+        <div id="selection-area" style="display:flex; gap:5px;">
+            <button class="btn" style="width:70px; color:#00d4ff;" onclick="startGame('Mage', '#00d4ff')">MAGE</button>
+            <button class="btn" style="width:70px; color:#fff;" onclick="startGame('Pala', '#fff')">PALA</button>
+            <button class="btn" style="width:70px; color:#ffaa
