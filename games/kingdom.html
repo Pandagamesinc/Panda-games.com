@@ -1,0 +1,105 @@
+/**
+ * PROJECT: SOVEREIGN_STRATAGEM_ULTIMATE
+ * MODULE: TOTAL_DOMINATION_&_AI_V17
+ */
+
+const DOMINATION_RULES = {
+    victory_condition: "DOMINATION_ONLY",
+    required_capitals: 3, 
+    player_capitals_held: 1,
+    war_weariness: 0, 
+};
+
+// --- ENHANCED AI KINGDOMS ---
+const AI_KINGDOMS = [
+    { 
+        name: "Sun-Throne", leader: "Elara", capital: "Solstice", 
+        status: "ALIVE", fortification: 250, military_power: 150, 
+        agenda: "Purifier", active_war: false 
+    },
+    { 
+        name: "Grave-Watch", leader: "Kaelen", capital: "Mourn-Hold", 
+        status: "ALIVE", fortification: 180, military_power: 100, 
+        agenda: "Hoarder", active_war: false 
+    },
+    { 
+        name: "Stone-Deep", leader: "Thrain", capital: "Iron-Forge", 
+        status: "ALIVE", fortification: 400, military_power: 300, 
+        agenda: "Industrialist", active_war: false 
+    }
+];
+
+/**
+ * CITY SIEGE ENGINE (Player Action)
+ */
+function initiateSiege(aiIndex, army) {
+    const target = AI_KINGDOMS[aiIndex];
+    const p = SOVEREIGN_ENGINE.player;
+
+    if (target.status === "CAPTURED") return "City already under your control.";
+
+    let totalAtk = army.reduce((sum, u) => sum + u.atk, 0);
+    const hasSiege = army.some(u => u.class === "SIEGE");
+    if (hasSiege) totalAtk *= 2; 
+
+    console.log(`--- SIEGE OF ${target.capital.toUpperCase()} ---`);
+    
+    if (target.fortification > 0) {
+        target.fortification -= totalAtk;
+        DOMINATION_RULES.war_weariness += 10; // Combat increases weariness
+        console.log(`Walls holding! Remaining Fortification: ${Math.max(0, target.fortification)}`);
+    } else {
+        target.status = "CAPTURED";
+        target.active_war = false;
+        DOMINATION_RULES.player_capitals_held++;
+        p.conquered_hexes += 15;
+        CIV_6_CORE.era_score += 10;
+        checkVictory();
+        return `[VICTORY] ${target.capital} has fallen!`;
+    }
+}
+
+/**
+ * AI COUNTER-STRATEGY: THE RAID
+ */
+function conductAIRaid(ai) {
+    const p = SOVEREIGN_ENGINE.player;
+    // AI targets a random player city
+    const targetCity = p.cities[Math.floor(Math.random() * p.cities.length)];
+    
+    console.log(`[WAR] ${ai.leader} of ${ai.name} is raiding ${targetCity.name}!`);
+    
+    // Defense: Static City Defense (50) + Combined Legion ATK
+    let defensePower = p.legion.reduce((sum, u) => sum + u.atk, 0) + 50;
+    
+    if (ai.military_power > defensePower) {
+        p.inventory.energy -= 300; // Raid plunders your "Bus"
+        DOMINATION_RULES.war_weariness += 25;
+        console.log(`[DEFEAT] The raid was successful. Soul energy was plundered.`);
+    } else {
+        ai.military_power -= 40; // AI loses forces on failure
+        console.log(`[DEFENSE] Your legion successfully repelled the invaders.`);
+    }
+}
+
+/**
+ * INTEGRATED TURN CYCLE
+ */
+function processDominationTurn() {
+    const p = SOVEREIGN_ENGINE.player;
+    const c6 = SOVEREIGN_ENGINE.state;
+
+    // 1. Yields & Weariness
+    let wearinessMod = 1 - (DOMINATION_RULES.war_weariness / 1000);
+    p.cities.forEach(city => {
+        city.districts.forEach(d => {
+            p.inventory.energy += (d.adjacency_bonus * wearinessMod);
+        });
+    });
+
+    // 2. AI Intelligence & Agenda Check
+    AI_KINGDOMS.forEach(ai => {
+        if (ai.status === "CAPTURED") return;
+
+        // Passive AI Growth
+        ai.military_power
