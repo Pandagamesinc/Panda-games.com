@@ -1,105 +1,61 @@
-/**
- * PROJECT: SOVEREIGN_STRATAGEM_ULTIMATE
- * MODULE: TOTAL_DOMINATION_&_AI_V17
- */
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sovereign Stratagem: Domination</title>
+    <style>
+        body { background: #1a1a1a; color: #00ffcc; font-family: 'Courier New', monospace; margin: 20px; }
+        #game-container { display: flex; gap: 20px; }
+        #log { width: 400px; height: 500px; background: #000; border: 2px solid #333; overflow-y: scroll; padding: 10px; font-size: 12px; }
+        #stats { width: 300px; background: #222; padding: 20px; border: 2px solid #00ffcc; }
+        .btn { background: #00ffcc; color: #000; border: none; padding: 10px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
+        .btn:hover { background: #fff; }
+        .resource { color: #fff; font-size: 18px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
 
-const DOMINATION_RULES = {
-    victory_condition: "DOMINATION_ONLY",
-    required_capitals: 3, 
-    player_capitals_held: 1,
-    war_weariness: 0, 
-};
-
-// --- ENHANCED AI KINGDOMS ---
-const AI_KINGDOMS = [
-    { 
-        name: "Sun-Throne", leader: "Elara", capital: "Solstice", 
-        status: "ALIVE", fortification: 250, military_power: 150, 
-        agenda: "Purifier", active_war: false 
-    },
-    { 
-        name: "Grave-Watch", leader: "Kaelen", capital: "Mourn-Hold", 
-        status: "ALIVE", fortification: 180, military_power: 100, 
-        agenda: "Hoarder", active_war: false 
-    },
-    { 
-        name: "Stone-Deep", leader: "Thrain", capital: "Iron-Forge", 
-        status: "ALIVE", fortification: 400, military_power: 300, 
-        agenda: "Industrialist", active_war: false 
-    }
-];
-
-/**
- * CITY SIEGE ENGINE (Player Action)
- */
-function initiateSiege(aiIndex, army) {
-    const target = AI_KINGDOMS[aiIndex];
-    const p = SOVEREIGN_ENGINE.player;
-
-    if (target.status === "CAPTURED") return "City already under your control.";
-
-    let totalAtk = army.reduce((sum, u) => sum + u.atk, 0);
-    const hasSiege = army.some(u => u.class === "SIEGE");
-    if (hasSiege) totalAtk *= 2; 
-
-    console.log(`--- SIEGE OF ${target.capital.toUpperCase()} ---`);
+    <h1>SOVEREIGN STRATAGEM: DOMINATION</h1>
     
-    if (target.fortification > 0) {
-        target.fortification -= totalAtk;
-        DOMINATION_RULES.war_weariness += 10; // Combat increases weariness
-        console.log(`Walls holding! Remaining Fortification: ${Math.max(0, target.fortification)}`);
-    } else {
-        target.status = "CAPTURED";
-        target.active_war = false;
-        DOMINATION_RULES.player_capitals_held++;
-        p.conquered_hexes += 15;
-        CIV_6_CORE.era_score += 10;
-        checkVictory();
-        return `[VICTORY] ${target.capital} has fallen!`;
-    }
-}
+    <div id="game-container">
+        <div id="stats">
+            <div class="resource">Energy: <span id="res-energy">0</span></div>
+            <div class="resource">Crystals: <span id="res-crystals">0</span></div>
+            <div class="resource">Capitals: <span id="res-caps">1/4</span></div>
+            <div class="resource">Weariness: <span id="res-weary">0</span></div>
+            <hr>
+            <button class="btn" onclick="spawnUnit('Skeletal_Militia')">Summon Militia (50 Energy)</button>
+            <button class="btn" onclick="spawnUnit('Necromancer')">Summon Necromancer (200 Energy)</button>
+            <button class="btn" onclick="attackAI(0)">Siege Sun-Throne (Requires Army)</button>
+        </div>
 
-/**
- * AI COUNTER-STRATEGY: THE RAID
- */
-function conductAIRaid(ai) {
-    const p = SOVEREIGN_ENGINE.player;
-    // AI targets a random player city
-    const targetCity = p.cities[Math.floor(Math.random() * p.cities.length)];
-    
-    console.log(`[WAR] ${ai.leader} of ${ai.name} is raiding ${targetCity.name}!`);
-    
-    // Defense: Static City Defense (50) + Combined Legion ATK
-    let defensePower = p.legion.reduce((sum, u) => sum + u.atk, 0) + 50;
-    
-    if (ai.military_power > defensePower) {
-        p.inventory.energy -= 300; // Raid plunders your "Bus"
-        DOMINATION_RULES.war_weariness += 25;
-        console.log(`[DEFEAT] The raid was successful. Soul energy was plundered.`);
-    } else {
-        ai.military_power -= 40; // AI loses forces on failure
-        console.log(`[DEFENSE] Your legion successfully repelled the invaders.`);
-    }
-}
+        <div id="log">
+            <div>[SYSTEM] Awakening Sovereign...</div>
+        </div>
+    </div>
 
-/**
- * INTEGRATED TURN CYCLE
- */
-function processDominationTurn() {
-    const p = SOVEREIGN_ENGINE.player;
-    const c6 = SOVEREIGN_ENGINE.state;
+    <script>
+        // --- CORE GAME STATE ---
+        let player = {
+            energy: 100,
+            crystals: 5,
+            capitals: 1,
+            weariness: 0,
+            army: []
+        };
 
-    // 1. Yields & Weariness
-    let wearinessMod = 1 - (DOMINATION_RULES.war_weariness / 1000);
-    p.cities.forEach(city => {
-        city.districts.forEach(d => {
-            p.inventory.energy += (d.adjacency_bonus * wearinessMod);
-        });
-    });
+        const AI_KINGDOMS = [
+            { name: "Sun-Throne", leader: "Elara", fortification: 250, status: "ALIVE" }
+        ];
 
-    // 2. AI Intelligence & Agenda Check
-    AI_KINGDOMS.forEach(ai => {
-        if (ai.status === "CAPTURED") return;
+        // --- GAME ACTIONS ---
+        function log(msg) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `<div>> ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
 
-        // Passive AI Growth
-        ai.military_power
+        function spawnUnit(type) {
+            let cost = type === 'Necromancer' ? 200 : 50;
+            if (player.energy >= cost) {
+                player.energy -= cost;
+                player.army.push({ type: type, atk: type === 'Necromancer' ? 15 : 10, bus: type
