@@ -1,61 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign Stratagem: Domination</title>
+    <title>Sovereign Stratagem: Total Domination</title>
     <style>
-        body { background: #1a1a1a; color: #00ffcc; font-family: 'Courier New', monospace; margin: 20px; }
-        #game-container { display: flex; gap: 20px; }
-        #log { width: 400px; height: 500px; background: #000; border: 2px solid #333; overflow-y: scroll; padding: 10px; font-size: 12px; }
-        #stats { width: 300px; background: #222; padding: 20px; border: 2px solid #00ffcc; }
-        .btn { background: #00ffcc; color: #000; border: none; padding: 10px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
+        body { background: #050505; color: #00ffcc; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
+        #game-ui { position: absolute; top: 10px; left: 10px; width: 350px; background: rgba(10,10,15,0.95); border: 1px solid #00ffcc; padding: 15px; z-index: 100; box-shadow: 0 0 20px rgba(0,255,204,0.3); border-radius: 8px; }
+        #map-canvas { background: #000; cursor: crosshair; }
+        .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .res-box { background: #1a1a1a; padding: 8px; border-radius: 4px; border-left: 3px solid #00ffcc; }
+        .label { font-size: 10px; color: #aaa; text-transform: uppercase; }
+        .val { font-size: 16px; font-weight: bold; color: #fff; }
+        .log { height: 140px; background: #000; border: 1px solid #222; overflow-y: scroll; font-size: 11px; margin-top: 10px; padding: 8px; color: #00ffcc; }
+        .tabs { display: flex; gap: 5px; margin-top: 10px; }
+        .tab-btn { flex: 1; padding: 6px; font-size: 10px; background: #222; color: #fff; border: 1px solid #444; cursor: pointer; }
+        .tab-btn.active { background: #00ffcc; color: #000; }
+        .action-pane { display: none; margin-top: 10px; }
+        .action-pane.active { display: block; }
+        .btn { background: #00ffcc; color: #000; border: none; padding: 10px; cursor: pointer; margin-top: 5px; width: 100%; font-weight: bold; border-radius: 4px; }
         .btn:hover { background: #fff; }
-        .resource { color: #fff; font-size: 18px; margin-bottom: 5px; }
+        .btn:disabled { background: #333; color: #777; }
     </style>
 </head>
 <body>
 
-    <h1>SOVEREIGN STRATAGEM: DOMINATION</h1>
-    
-    <div id="game-container">
-        <div id="stats">
-            <div class="resource">Energy: <span id="res-energy">0</span></div>
-            <div class="resource">Crystals: <span id="res-crystals">0</span></div>
-            <div class="resource">Capitals: <span id="res-caps">1/4</span></div>
-            <div class="resource">Weariness: <span id="res-weary">0</span></div>
-            <hr>
-            <button class="btn" onclick="spawnUnit('Skeletal_Militia')">Summon Militia (50 Energy)</button>
-            <button class="btn" onclick="spawnUnit('Necromancer')">Summon Necromancer (200 Energy)</button>
-            <button class="btn" onclick="attackAI(0)">Siege Sun-Throne (Requires Army)</button>
+    <div id="game-ui">
+        <div class="res-grid">
+            <div class="res-box"><div class="label">Energy</div><div class="val" id="ui-energy">100</div></div>
+            <div class="res-box"><div class="label">Weariness</div><div class="val" id="ui-weary">0</div></div>
+            <div class="res-box"><div class="label">Army ATK</div><div class="val" id="ui-atk">0</div></div>
+            <div class="res-box"><div class="label">Capitals</div><div class="val" id="ui-caps">1/4</div></div>
         </div>
 
-        <div id="log">
-            <div>[SYSTEM] Awakening Sovereign...</div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('units')">War Room</button>
+            <button class="tab-btn" onclick="showTab('build')">Cities</button>
+            <button class="tab-btn" onclick="showTab('info')">Intel</button>
         </div>
-    </div>
 
-    <script>
-        // --- CORE GAME STATE ---
-        let player = {
-            energy: 100,
-            crystals: 5,
-            capitals: 1,
-            weariness: 0,
-            army: []
-        };
-
-        const AI_KINGDOMS = [
-            { name: "Sun-Throne", leader: "Elara", fortification: 250, status: "ALIVE" }
-        ];
-
-        // --- GAME ACTIONS ---
-        function log(msg) {
-            const logDiv = document.getElementById('log');
-            logDiv.innerHTML += `<div>> ${msg}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
-
-        function spawnUnit(type) {
-            let cost = type === 'Necromancer' ? 200 : 50;
-            if (player.energy >= cost) {
-                player.energy -= cost;
-                player.army.push({ type: type, atk: type === 'Necromancer' ? 15 : 10, bus: type
+        <div id="units-pane" class="action-pane active">
+            <button class="btn" onclick="spawnUnit('Militia', 50, 10, 2)">Summon Militia (50 E)</button>
+            <button class="btn" onclick="spawnUnit('Necromancer', 200
