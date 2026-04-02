@@ -10,6 +10,7 @@
         .stat { font-size: 16px; font-weight: bold; }
         .btn { background: #cdbe8c; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; border-radius: 4px; text-transform: uppercase; }
         .btn:hover { background: #fff; }
+        .btn.confirm { background: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
         .btn:disabled { background: #444; color: #777; cursor: not-allowed; }
         #log { font-size: 11px; color: #00ffcc; margin-top: 10px; height: 60px; overflow-y: hidden; }
         canvas { display: block; }
@@ -45,7 +46,8 @@
 
         let state = {
             energy: 200, science: 0, turn: 1,
-            grid: [], units: [], selected: null
+            grid: [], units: [], selected: null,
+            pendingAction: null
         };
 
         function initGame() {
@@ -66,5 +68,36 @@
                 }
             }
 
-            // Start with Civ VI units
-            state.units.push({ id: 1, q:
+            state.units.push({ id: 1, q: 4, r: 4, type: 'SETTLER', moves: 2, maxMoves: 2 });
+            state.grid[4][4].explored = true;
+            draw();
+        }
+
+        function getHexXY(q, r) {
+            const screenX = (canvas.width / 2) - (8 * HEX_SIZE * 1.5);
+            const screenY = (canvas.height / 2) - (6 * HEX_SIZE * 1.7);
+            return {
+                x: screenX + (HEX_SIZE * 1.5 * q),
+                y: screenY + (HEX_SIZE * Math.sqrt(3) * (r + 0.5 * (q % 2)))
+            };
+        }
+
+        function draw() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            for(let r=0; r<12; r++) {
+                for(let q=0; q<16; q++) {
+                    const t = state.grid[r][q];
+                    const {x, y} = getHexXY(q, r);
+
+                    ctx.beginPath();
+                    for(let i=0; i<6; i++) {
+                        let a = 2 * Math.PI / 6 * i;
+                        ctx.lineTo(x + HEX_SIZE * 0.95 * Math.cos(a), y + HEX_SIZE * 0.95 * Math.sin(a));
+                    }
+                    ctx.closePath();
+
+                    ctx.fillStyle = t.explored ? (t.type === 'MTN' ? "#333" : "#2d4c1e") : "#0a0a0a";
+                    ctx.fill();
+                    ctx.strokeStyle = (state.selected && state.selected.q === q && state.selected.r === r) ? "#00ffcc" : "#1a1a1a
