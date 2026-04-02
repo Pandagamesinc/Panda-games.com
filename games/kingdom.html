@@ -1,38 +1,126 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Absolute Zero</title>
+    <title>Sovereign VI: Direct</title>
     <style>
-        body { background: #000; color: #cdbe8c; font-family: 'Courier New', Courier, monospace; margin: 0; overflow: hidden; }
-        /* Static UI that exists before JS loads */
-        #boot-layer { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 5px solid #111; }
-        #game-ui { display: none; position: absolute; top: 0; width: 100%; height: 100%; pointer-events: none; }
-        .panel { pointer-events: auto; background: rgba(0,0,0,0.9); border: 1px solid #cdbe8c; padding: 10px; }
-        #top-bar { display: flex; justify-content: center; gap: 20px; width: 100%; border-bottom: 2px solid #cdbe8c; }
-        #side-panel { position: absolute; bottom: 20px; left: 20px; width: 250px; min-height: 150px; }
-        .btn { background: #cdbe8c; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin: 4px 0; font-family: inherit; }
+        body { background: #000; color: #cdbe8c; font-family: monospace; margin: 0; overflow: hidden; text-align: center; }
+        #boot-ui { position: fixed; inset: 0; background: #000; z-index: 999; padding-top: 20vh; }
+        #game-layout { display: none; } /* Hidden until Start is clicked */
+        .panel { position: absolute; background: rgba(0,0,0,0.9); border: 1px solid #cdbe8c; padding: 10px; z-index: 10; }
+        #top { top: 0; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #cdbe8c; height: 40px; align-items: center; }
+        #actions { bottom: 20px; left: 20px; width: 240px; min-height: 120px; text-align: left; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; }
         .btn:hover { background: #fff; }
-        canvas { display: block; background: #050505; }
-        .stat { font-weight: bold; color: #00ffcc; }
+        canvas { display: block; background: #050505; cursor: crosshair; }
+        .stat { font-weight: bold; color: #00ffcc; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <div id="boot-layer">
-        <h1 style="letter-spacing: 5px;">SOVEREIGN VI</h1>
-        <p style="color: #666; font-size: 12px;">CORE PROTOCOL v4.0</p>
-        <button id="start-trigger" class="btn" style="width: 200px; height: 50px;" onclick="manualStart()">MANUAL OVERRIDE START</button>
-        <p id="status-text" style="color: #444; font-size: 10px; margin-top: 20px;">READY FOR INPUT</p>
+    <div id="boot-ui">
+        <h1 style="letter-spacing: 10px; color: #cdbe8c;">SOVEREIGN VI</h1>
+        <p style="color: #444;">V5.0 EMERGENCY BOOT</p>
+        <button class="btn" style="width: 250px; font-size: 18px;" onclick="runGame()">ACTIVATE ENGINE</button>
     </div>
 
-    <div id="game-ui">
-        <div id="top-bar" class="panel">
-            <div class="stat">ENG: <span id="e-val">200</span></div>
-            <div class="stat">SCI: <span id="s-val">0</span></div>
-            <div class="stat">FAITH: <span id="f-val">0</span></div>
-            <div class="stat">TURN: <span id="t-val">1</span></div>
-            <button class="btn" style="width: 80px; margin: 0; background: #00ffcc;" onclick="endTurn()">NEXT</button>
+    <div id="game-layout">
+        <div id="top" class="panel">
+            <div class="stat">⚡ <span id="e">250</span></div>
+            <div class="stat">⚛️ <span id="s">0</span></div>
+            <div class="stat">🙏 <span id="f">0</span></div>
+            <div class="stat">TURN <span id="t">1</span></div>
+            <button class="btn" style="width: 80px; margin: 0 0 0 20px; background: #00ffcc;" onclick="nextTurn()">NEXT</button>
         </div>
 
-        <div id="side-panel" class="panel">
-            <div id="era-name" style="font-size: 10px; color: #888;">ERA: ANCIENT
+        <div id="actions" class="panel">
+            <div id="unit-name" style="color:#00ffcc; margin-bottom: 10px;">Select Unit/City</div>
+            <div id="btn-list"></div>
+        </div>
+
+        <canvas id="c"></canvas>
+    </div>
+
+    <script>
+        // Use very simple global variables
+        var canvas, ctx, grid = [], units = [], selected = null;
+        var energy = 250, science = 0, faith = 0, turn = 1, era = 0;
+        var H = 42; // Hex size
+
+        function runGame() {
+            // 1. Swap UI
+            document.getElementById('boot-ui').style.display = 'none';
+            document.getElementById('game-layout').style.display = 'block';
+
+            // 2. Setup Canvas
+            canvas = document.getElementById('c');
+            ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // 3. Create Grid
+            for(var r=0; r<12; r++) {
+                grid[r] = [];
+                for(var q=0; q<16; q++) {
+                    grid[r][q] = { q:q, r:r, type: Math.random()>0.9?'M':'P', seen:false, city:false, impr:null, owner:null };
+                }
+            }
+
+            // 4. Starting Units
+            addUnit(4, 4, 'SETTLER', 'P');
+            addUnit(5, 5, 'WARRIOR', 'P');
+            addUnit(13, 9, 'AI', 'AI');
+
+            draw();
+        }
+
+        function addUnit(q, r, type, side) {
+            var u = { id:Math.random(), q:q, r:r, type:type, side:side, m:2 };
+            units.push(u);
+            if(side === 'P') reveal(q, r, 2);
+        }
+
+        function reveal(cq, cr, range) {
+            for(var r=0; r<12; r++) {
+                for(var q=0; q<16; q++) {
+                    if(Math.abs(cq-q) + Math.abs(cr-r) <= range) grid[r][q].seen = true;
+                }
+            }
+        }
+
+        function getXY(q, r) {
+            var ox = (canvas.width/2) - (8 * H * 1.5);
+            var oy = (canvas.height/2) - (6 * H * 1.7);
+            return { x: ox + (q * H * 1.5), y: oy + (H * 1.73 * (r + 0.5 * (q % 2))) };
+        }
+
+        function draw() {
+            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
+            for(var r=0; r<12; r++) {
+                for(var q=0; q<16; q++) {
+                    var t = grid[r][q];
+                    var pos = getXY(q, r);
+                    ctx.beginPath();
+                    for(var i=0; i<6; i++) ctx.lineTo(pos.x + H * Math.cos(i * Math.PI/3), pos.y + H * Math.sin(i * Math.PI/3));
+                    ctx.closePath();
+                    ctx.fillStyle = t.seen ? (t.type === 'M' ? "#222" : "#142111") : "#080808";
+                    ctx.fill();
+                    ctx.strokeStyle = (selected && selected.q === q && selected.r === r) ? "#0ff" : "#111";
+                    ctx.stroke();
+                    if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.fillText("🏛️", pos.x-8, pos.y+5); }
+                    if(t.seen && t.impr === 'F') { ctx.fillStyle="#8d5"; ctx.fillText("🌾", pos.x-8, pos.y+5); }
+                }
+            }
+            units.forEach(function(u) {
+                var pos = getXY(u.q, u.r);
+                ctx.fillStyle = u.side === 'AI' ? "#f0f" : (u.m > 0 ? (u.type==='SETTLER'?'#fff':'#f44') : "#444");
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.fillText(u.type[0], pos.x-4, pos.y+4);
+            });
+        }
+
+        window.onclick = function(e) {
+            if (document.getElementById('game-layout').style.display === 'none') return;
+            for(var r=0; r<12; r++) {
+                for(var q=0; q<16; q++) {
+                    var pos = getXY(q, r);
+                    if(Math.sqrt(Math.pow(e.
