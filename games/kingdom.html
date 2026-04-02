@@ -1,145 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Recovery</title>
+    <title>Sovereign VI: Faith & Industry</title>
     <style>
-        /* Minimalist CSS to prevent rendering conflicts */
-        body { background: #000; color: #0f0; font-family: monospace; margin: 0; padding: 0; }
-        #debug-ui { position: absolute; top: 10px; left: 10px; background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0; z-index: 100; font-size: 12px; }
-        #actions-panel { position: absolute; bottom: 10px; left: 10px; background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0; z-index: 100; width: 250px; }
-        canvas { display: block; border: 1px solid #222; }
-        .btn { background: #0f0; color: #000; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold; margin: 2px; }
+        body { background: #020205; color: #cdbe8c; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; gap: 15px; padding: 10px; border-bottom: 2px solid #cdbe8c; z-index: 100; font-size: 12px; }
+        #side-panel { position: absolute; bottom: 20px; left: 20px; width: 280px; background: rgba(10,15,25,0.98); border: 2px solid #cdbe8c; padding: 15px; border-radius: 8px; z-index: 100; max-height: 70vh; overflow-y: auto; }
+        .stat { font-weight: bold; display: flex; align-items: center; gap: 4px; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; border-radius: 4px; font-size: 11px; }
         .btn:hover { background: #fff; }
+        .item-card { background: #1a1a1a; padding: 8px; margin-top: 5px; border: 1px solid #333; border-radius: 4px; font-size: 11px; }
+        #boot-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        canvas { display: block; }
     </style>
 </head>
-<body onload="boot()">
+<body onload="init()">
 
-    <div id="debug-ui">
-        SOVEREIGN VI RECOVERY<br>
-        ENERGY: <span id="e">200</span> | SCI: <span id="s">0</span> | TURN: <span id="t">1</span><br>
-        <button class="btn" onclick="endTurn()">NEXT TURN</button>
-        <button class="btn" style="background:red; color:white;" onclick="boot()">MANUAL REBOOT</button>
+    <div id="boot-screen">
+        <h1 style="letter-spacing: 8px;">SOVEREIGN VI</h1>
+        <button class="btn" style="width: 200px; padding: 15px;" onclick="startGame()">START CIVILIZATION</button>
     </div>
 
-    <div id="actions-panel">
-        <div id="msg">Initializing...</div>
-        <div id="btns"></div>
+    <div id="ui-top">
+        <div class="stat">⚡<span id="res-e">200</span></div>
+        <div class="stat">⚛️<span id="res-s">0</span></div>
+        <div class="stat">🙏<span id="res-f">0</span></div>
+        <div class="stat">📅 TURN <span id="turn">1</span></div>
+        <button class="btn" style="width: 80px; margin: 0; background: #00ffcc;" onclick="endTurn()">NEXT</button>
     </div>
 
-    <canvas id="gc"></canvas>
+    <div id="side-panel">
+        <div id="era-name" style="color:#00ffcc; font-size: 10px; font-weight: bold;">ANCIENT ERA</div>
+        <div id="religion-name" style="color:#ffcc00; font-size: 10px;">SECULAR SOCIETY</div>
+        <hr style="border:0; border-top:1px solid #333;">
+        <div id="selection-info">Select a unit or city.</div>
+        <div id="action-list"></div>
+    </div>
+
+    <canvas id="map"></canvas>
 
     <script>
-        const canvas = document.getElementById('gc');
+        const canvas = document.getElementById('map');
         const ctx = canvas.getContext('2d');
-        const H = 40; // Hex Size
+        const HEX = 40;
 
         let state = {
-            e: 250, s: 0, t: 1, era: 0,
-            grid: [], units: [], sel: null
+            e: 250, s: 0, f: 0, t: 1, era: 0, faithBonus: 1,
+            grid: [], units: [], selected: null, religionChosen: false
         };
 
-        const DATA = {
-            'SETTLER': { sym: 'S', col: '#fff', m: 2, v: 2, cost: 100, era: 0 },
-            'WARRIOR': { sym: 'W', col: '#f00', m: 2, v: 2, cost: 40, era: 0 },
-            'KNIGHT':  { sym: 'K', col: '#ff0', m: 4, v: 2, cost: 120, era: 1 },
-            'TANK':    { sym: 'T', col: '#888', m: 3, v: 3, cost: 300, era: 2 },
-            'CYBORG':  { sym: 'X', col: '#0ff', m: 4, v: 4, cost: 500, era: 3 }
+        const UNITS = {
+            'SETTLER': { sym: 'S', col: '#fff', m: 2, v: 2, cost: 100 },
+            'BUILDER': { sym: 'B', col: '#8d5', m: 2, v: 2, cost: 50, charges: 3 },
+            'WARRIOR': { sym: 'W', col: '#f44', m: 2, v: 2, cost: 40 },
+            'AI_SCOUT': { sym: '!', col: '#f0f', m: 2, v: 2, cost: 0 } // Enemy AI
         };
 
-        function boot() {
-            // Force Canvas Size
+        const RELIGIONS = [
+            { name: "Divine Spark", bonus: "science", desc: "+2 Science per turn" },
+            { name: "Goddess of Harvest", bonus: "energy", desc: "+20 Energy per turn" },
+            { name: "Oral Tradition", bonus: "faith", desc: "+5 Faith per turn" }
+        ];
+
+        function init() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-
-            // Build simple grid
-            state.grid = [];
-            for(let r=0; r<10; r++) {
-                for(let q=0; q<12; q++) {
-                    state.grid.push({ q, r, type: Math.random() > 0.9 ? 'M' : 'P', seen: false, city: false });
-                }
-            }
-
-            // Reset Units
-            state.units = [];
-            spawn(2, 2, 'SETTLER');
-            spawn(3, 2, 'WARRIOR');
-            
-            update();
-            console.log("Game Booted");
-        }
-
-        function spawn(q, r, type) {
-            state.units.push({ id: Math.random(), q, r, type, moves: DATA[type].m });
-            reveal(q, r, DATA[type].v);
-        }
-
-        function reveal(cq, cr, range) {
-            state.grid.forEach(t => {
-                if (Math.abs(cq - t.q) + Math.abs(cr - t.r) <= range) t.seen = true;
-            });
-        }
-
-        function getXY(q, r) {
-            const ox = 50; 
-            const oy = 80;
-            return { x: ox + (q * H * 1.5), y: oy + (H * 1.73 * (r + 0.5 * (q % 2))) };
-        }
-
-        function update() {
-            // Background
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0,0,canvas.width, canvas.height);
-
-            // Draw Tiles
-            state.grid.forEach(t => {
-                const {x, y} = getXY(t.q, t.r);
-                ctx.beginPath();
-                for(let i=0; i<6; i++) ctx.lineTo(x + H * Math.cos(i * Math.PI/3), y + H * Math.sin(i * Math.PI/3));
-                ctx.closePath();
-                ctx.fillStyle = t.seen ? (t.type === 'M' ? "#333" : "#020") : "#050505";
-                ctx.fill();
-                ctx.strokeStyle = (state.sel && state.sel.q === t.q && state.sel.r === t.r) ? "#0f0" : "#111";
-                ctx.stroke();
-                if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.fillText("CITY", x-12, y+5); }
-            });
-
-            // Draw Units
-            state.units.forEach(u => {
-                const {x, y} = getXY(u.q, u.r);
-                ctx.fillStyle = u.moves > 0 ? DATA[u.type].col : "#444";
-                ctx.beginPath(); ctx.arc(x, y, 12, 0, 7); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.fillText(DATA[u.type].sym, x-4, y+4);
-            });
-
-            document.getElementById('e').innerText = state.e;
-            document.getElementById('s').innerText = state.s;
-            document.getElementById('t').innerText = state.t;
-        }
-
-        canvas.onclick = (e) => {
-            state.grid.forEach(t => {
-                const {x, y} = getXY(t.q, t.r);
-                if(Math.sqrt((e.clientX-x)**2 + (e.clientY-y)**2) < H) {
-                    const uAt = state.units.find(u => u.q === t.q && u.r === t.r);
-                    if(state.sel && state.sel.u && !uAt) {
-                        // Move
-                        if(state.sel.u.moves > 0) {
-                            state.sel.u.q = t.q; state.sel.u.r = t.r;
-                            state.sel.u.moves--; reveal(t.q, t.r, DATA[state.sel.u.type].v);
-                            state.sel = null;
-                        }
-                    } else {
-                        state.sel = uAt ? {u: uAt, q: t.q, r: t.r} : {t: t, q: t.q, r: t.r};
-                    }
-                    update();
-                    ui();
-                }
-            });
-        };
-
-        function ui() {
-            const btns = document.getElementById('btns');
-            const msg = document.getElementById('msg');
-            btns.innerHTML = '';
-            
-            if(!
+            for(let r=0; r<12; r++) {
+                state.grid[r] = [];
+                for(let q=0; q<16;
