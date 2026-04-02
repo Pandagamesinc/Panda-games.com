@@ -1,59 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign: Compatibility Mode</title>
+    <title>Sovereign VI: Tactical Expansion</title>
     <style>
-        body { background: #000; color: #cdbe8c; font-family: sans-serif; margin: 0; overflow: hidden; }
-        #controls { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.8); padding: 15px; border: 1px solid #cdbe8c; border-radius: 5px; width: 250px; }
-        #gameCanvas { background: #050505; display: block; border: 1px solid #222; }
-        .stat { margin-bottom: 5px; font-size: 14px; }
-        .btn { background: #cdbe8c; color: #000; border: none; padding: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        body { background: #050508; color: #cdbe8c; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
+        #boot-layer { position: absolute; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #cdbe8c; z-index: 500; }
+        #control-panel { position: absolute; bottom: 20px; left: 20px; width: 300px; background: rgba(15, 20, 30, 0.95); border: 2px solid #cdbe8c; padding: 20px; border-radius: 10px; z-index: 500; box-shadow: 0 0 15px #000; }
+        .stat { font-size: 16px; font-weight: bold; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; border-radius: 4px; text-transform: uppercase; }
         .btn:hover { background: #fff; }
-        #action-box { margin-top: 15px; padding-top: 15px; border-top: 1px solid #444; }
+        .btn:disabled { background: #444; color: #777; cursor: not-allowed; }
+        #log { font-size: 11px; color: #00ffcc; margin-top: 10px; height: 60px; overflow-y: hidden; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
 
-    <div id="controls">
-        <div class="stat">ENERGY: <span id="e-val">100</span></div>
-        <div class="stat">TURN: <span id="t-val">1</span></div>
-        <button class="btn" style="background:#00ffcc" onclick="forceDraw()">FORCE DRAW MAP</button>
-        <button class="btn" onclick="nextTurn()">END TURN</button>
-        
-        <div id="action-box">
-            <div id="sel-name" style="font-weight:bold; color:#fff">No Selection</div>
-            <div id="btns"></div>
-        </div>
+    <div id="boot-layer">
+        <h1 style="letter-spacing: 5px;">SOVEREIGN VI</h1>
+        <button class="btn" style="width: 250px;" onclick="initGame()">INITIALIZE ENGINE</button>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
+    <div id="ui-top">
+        <div class="stat">ENERGY: <span id="res-e">200</span> <small id="yield-e" style="color:#00ffcc">(+0)</small></div>
+        <div class="stat">SCIENCE: <span id="res-s">0</span></div>
+        <div class="stat">TURN: <span id="turn-val">1</span></div>
+        <button class="btn" style="width: 150px; margin: 0; background: #00ffcc;" onclick="processTurn()">END TURN</button>
+    </div>
+
+    <div id="control-panel">
+        <div id="unit-name" style="font-size: 18px; border-bottom: 1px solid #444; padding-bottom: 5px;">Select Unit</div>
+        <div id="unit-stats" style="font-size: 12px; margin: 10px 0; color: #aaa;">No active orders.</div>
+        <div id="action-list"></div>
+        <div id="log">> Awaiting input...</div>
+    </div>
+
+    <canvas id="gameMap"></canvas>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        const canvas = document.getElementById('gameMap');
         const ctx = canvas.getContext('2d');
-        
-        // Settings
-        const HEX_SIZE = 35;
-        const GRID_W = 15;
-        const GRID_H = 10;
-        
-        let game = {
-            energy: 100, turn: 1,
-            grid: [], settler: {q: 7, r: 5},
-            selected: null
+        const HEX_SIZE = 40;
+
+        let state = {
+            energy: 200, science: 0, turn: 1,
+            grid: [], units: [], selected: null
         };
 
-        function init() {
+        function initGame() {
+            document.getElementById('boot-layer').style.display = 'none';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
-            for(let r=0; r<GRID_H; r++) {
-                game.grid[r] = [];
-                for(let q=0; q<GRID_W; q++) {
-                    game.grid[r][q] = {
-                        type: Math.random() > 0.8 ? 'MTN' : 'PLN',
-                        city: false,
-                        farm: false
+
+            for(let r=0; r<12; r++) {
+                state.grid[r] = [];
+                for(let q=0; q<16; q++) {
+                    state.grid[r][q] = { 
+                        q, r, 
+                        type: Math.random() > 0.85 ? 'MTN' : 'PLN', 
+                        explored: false, 
+                        improvement: null,
+                        progress: 0 
                     };
                 }
             }
+
+            // Start with Civ VI units
+            state.units.push({ id: 1, q:
