@@ -1,40 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign Stratagem: Eternal Empire</title>
+    <title>Sovereign Stratagem: Civ Edition</title>
     <style>
-        body { background: #050505; color: #00ffcc; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
-        #game-ui { position: absolute; top: 10px; left: 10px; width: 360px; background: rgba(10,10,15,0.98); border: 1px solid #00ffcc; padding: 15px; z-index: 100; border-radius: 8px; box-shadow: 0 0 20px rgba(0,255,204,0.2); }
-        #map-canvas { background: #000; cursor: crosshair; }
-        .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .res-box { background: #111; padding: 10px; border-radius: 4px; border-bottom: 2px solid #00ffcc; }
-        .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .val { font-size: 18px; font-weight: bold; color: #fff; }
-        .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
-        .tab-btn { flex: 1; padding: 8px; font-size: 11px; background: #222; color: #aaa; border: 1px solid #444; cursor: pointer; border-radius: 4px; }
-        .tab-btn.active { background: #00ffcc; color: #000; border-color: #fff; font-weight: bold; }
-        .pane { display: none; } .pane.active { display: block; }
-        .btn { background: #00ffcc; color: #000; border: none; padding: 12px; cursor: pointer; margin-top: 6px; width: 100%; font-weight: bold; border-radius: 4px; transition: 0.2s; }
-        .btn:hover { background: #fff; transform: translateY(-1px); }
-        .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
-        .log { height: 120px; background: #000; border: 1px solid #222; overflow-y: scroll; font-size: 11px; margin-top: 10px; padding: 8px; color: #00ffcc; border-radius: 4px; }
+        body { background: #08080c; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        #ui-layer { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 900px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        #top-bar { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: space-around; padding: 10px; border-bottom: 2px solid #cdbe8c; }
+        #action-bar { background: rgba(20, 25, 35, 0.95); border: 2px solid #cdbe8c; padding: 15px; display: flex; gap: 15px; border-radius: 10px; box-shadow: 0 0 20px #000; }
+        .stat { font-weight: bold; color: #cdbe8c; text-shadow: 1px 1px #000; }
+        .unit-card { width: 120px; background: #1a1a1a; border: 1px solid #444; padding: 10px; text-align: center; cursor: pointer; border-radius: 5px; }
+        .unit-card:hover { border-color: #cdbe8c; background: #2a2a2a; }
+        .unit-card.selected { border: 2px solid #00ffcc; box-shadow: 0 0 10px #00ffcc; }
+        #map-canvas { background: #000; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 3px; }
+        .btn:hover { background: #fff; }
     </style>
 </head>
 <body>
 
-    <div id="game-ui">
-        <div class="res-grid">
-            <div class="res-box"><div class="label">Energy (Bus)</div><div class="val" id="ui-energy">0</div></div>
-            <div class="res-box"><div class="label">Production</div><div class="val" id="ui-prod">0</div></div>
-            <div class="res-box"><div class="label">Territory</div><div class="val" id="ui-hexes">1</div></div>
-            <div class="res-box"><div class="label">Army Power</div><div class="val" id="ui-atk">0</div></div>
-        </div>
+    <div id="top-bar">
+        <div class="stat">ENERGY: <span id="res-e">500</span></div>
+        <div class="stat">SCIENCE: <span id="res-s">0</span></div>
+        <div class="stat">CULTURE: <span id="res-c">0</span></div>
+        <div class="stat">TURN: <span id="turn-count">1</span></div>
+        <button class="btn" style="background: #00ffcc" onclick="nextTurn()">NEXT TURN</button>
+    </div>
 
-        <div class="tabs">
-            <button class="tab-btn active" id="tab-dev" onclick="showTab('dev')">Develop</button>
-            <button class="tab-btn" id="tab-war" onclick="showTab('war')">War</button>
-            <button class="tab-btn" id="tab-intel" onclick="showTab('intel')">Intel</button>
+    <div id="ui-layer">
+        <div id="action-bar">
+            <div id="unit-info" style="flex-grow: 1;">
+                <b id="sel-unit-name">No Unit Selected</b><br>
+                <small id="sel-unit-desc">Select a unit on the map to issue orders.</small>
+            </div>
+            <div id="unit-actions" style="display: flex; gap: 10px;">
+                </div>
         </div>
+    </div>
 
-        <div id="pane-dev" class="pane active">
-            <button class="btn" id="btn-settle" onclick="setMode('
+    <canvas id="map-canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+        const HEX_SIZE = 40;
+        
+        let state = {
+            energy: 500, science: 0, culture: 0, turn: 1,
+            grid: [], units: [], cities: [],
+            selectedUnit: null,
+            camera: { x: 0, y: 0 }
+        };
+
+        const TERRAIN = {
+            PLAINS: { col: "#4f772d", e: 2, s: 0
