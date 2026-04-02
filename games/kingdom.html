@@ -55,4 +55,158 @@
             'WARRIOR':  { sym: 'W',  col: '#f44', m: 2, v: 2, c: 40,  e: 0 },
             'ARCHER':   { sym: 'A',  col: '#94f', m: 2, v: 2, c: 60,  e: 0 },
             'KNIGHT':   { sym: 'K',  col: '#ff8', m: 4, v: 2, c: 120, e: 1 },
-            'MUS
+            'MUSKET':   { sym: 'M',  col: '#8a8', m: 2, v: 2, c: 150, e: 2 },
+            'TANK':     { sym: 'T',  col: '#555', m: 3, v: 3, c: 300, e: 2 },
+            'CYBORG':   { sym: 'X',  col: '#0ff', m: 4, v: 4, c: 500, e: 3 }
+        };
+
+        function forceStart() {
+            document.getElementById('boot-button').style.display = 'none';
+            resize();
+            createMap();
+            spawn(4, 4, 'SETTLER');
+            spawn(5, 4, 'WARRIOR');
+            render();
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function createMap() {
+            for(let r=0; r<12; r++) {
+                game.grid[r] = [];
+                for(let q=0; q<16; q++) {
+                    game.grid[r][q] = {
+                        q, r, 
+                        type: Math.random() > 0.88 ? 'MTN' : 'PLN',
+                        seen: false, city: false
+                    };
+                }
+            }
+        }
+
+        function spawn(q, r, type) {
+            game.units.push({ id: Math.random(), q, r, type, moves: DATA[type].m });
+            reveal(q, r, DATA[type].v);
+        }
+
+        function reveal(cq, cr, range) {
+            game.grid.flat().forEach(t => {
+                if (Math.abs(cq - t.q) + Math.abs(cr - t.r) <= range) t.seen = true;
+            });
+        }
+
+        function getPos(q, r) {
+            const ox = (canvas.width/2) - (8 * HEX * 1.5);
+            const oy = (canvas.height/2) - (6 * HEX * 1.7);
+            return { x: ox + (q * HEX * 1.5), y: oy + (HEX * 1.73 * (r + 0.5 * (q % 2))) };
+        }
+
+        function render() {
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            game.grid.flat().forEach(t => {
+                const {x, y} = getPos(t.q, t.r);
+                ctx.beginPath();
+                for(let i=0; i<6; i++) ctx.lineTo(x + HEX * Math.cos(i * Math.PI/3), y + HEX * Math.sin(i * Math.PI/3));
+                ctx.closePath();
+                ctx.fillStyle = t.seen ? (t.type === 'MTN' ? "#222" : "#142111") : "#080808";
+                ctx.fill();
+                ctx.strokeStyle = (game.selected?.q === t.q && game.selected?.r === t.r) ? "#00ffcc" : "#111";
+                ctx.lineWidth = (game.selected?.q === t.q && game.selected?.r === t.r) ? 2 : 1;
+                ctx.stroke();
+                if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.font="16px Arial"; ctx.fillText("🏛️", x-10, y+6); }
+            });
+
+            game.units.forEach(u => {
+                const {x, y} = getPos(u.q, u.r);
+                ctx.fillStyle = u.moves > 0 ? DATA[u.type].col : "#444";
+                ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.font = "bold 11px Arial";
+                ctx.fillText(DATA[u.type].sym, x-6, y+4);
+            });
+        }
+
+        canvas.onclick = (e) => {
+            game.grid.flat().forEach(t => {
+                const {x, y} = getPos(t.q, t.r);
+                if(Math.sqrt((e.clientX-x)**2 + (e.clientY-y)**2) < HEX) {
+                    const unitAt = game.units.find(u => u.q === t.q && u.r === t.r);
+                    if(game.selected?.type === 'UNIT' && !unitAt) {
+                        if(game.selected.data.moves > 0) {
+                            game.selected.data.q = t.q; game.selected.data.r = t.r;
+                            game.selected.data.moves--; reveal(t.q, t.r, DATA[game.selected.data.type].v);
+                            game.selected = null;
+                        }
+                    } else {
+                        game.selected = unitAt ? {type:'UNIT', data: unitAt, q: t.q, r: t.r} : {type:'TILE', data: t, q: t.q, r: t.r};
+                    }
+                    render(); updateUI();
+                }
+            });
+        };
+
+        function updateUI() {
+            const actions = document.getElementById('actions');
+            const info = document.getElementById('info-box');
+            actions.innerHTML = '';
+            if(!game.selected) return;
+            
+            if(game.selected.type === 'UNIT') {
+                const u = game.selected.data;
+                info.innerText = u.type + " [" + u.moves + " Moves Left]";
+                if(u.type === 'SETTLER') {
+                    const b = document.createElement('button'); b.className='btn'; b.innerText="FOUND SETTLEMENT";
+                    b.onclick = () => {
+                        game.grid[u.r][u.q].city = true;
+                        game.units = game.units.filter(x => x.id !== u.id);
+                        game.selected = null; render(); updateUI();
+                    };
+                    actions.appendChild(b);
+                }
+            } else if(game.selected.data.city) {
+                info.innerText = "City Command Center";
+                Object.entries(DATA).forEach(([name, d]) => {
+                    const div = document.createElement('div');
+                    div.className = 'unit-card' + (d.e > game.era ? ' locked' : '');
+                    div.innerHTML = `<strong>${name}</strong><br>Cost: ${d.c}⚡` + (d.e > game.era ? `<br>Requires Era ${d.e}` : '');
+                    if(d.e <= game.era) {
+                        div.style.cursor = 'pointer';
+                        div.onclick = () => {
+                            if(game.energy >= d.c) {
+                                game.energy -= d.c; spawn(game.selected.q, game.selected.r, name);
+                                render(); updateUI();
+                                document.getElementById('e-val').innerText = game.energy;
+                            }
+                        };
+                    }
+                    actions.appendChild(div);
+                });
+            }
+        }
+
+        function endTurn() {
+            let income = 50;
+            game.grid.flat().forEach(t => { if(t.city) income += 40; });
+            game.energy += income; 
+            game.science += 15; 
+            game.turn++;
+            game.units.forEach(u => u.moves = DATA[u.type].m);
+
+            // Era Check
+            if(game.science >= 100 && game.era === 0) game.era = 1;
+            if(game.science >= 300 && game.era === 1) game.era = 2;
+            if(game.science >= 700 && game.era === 2) game.era = 3;
+
+            document.getElementById('era-tag').innerText = "ERA: " + ERAS[game.era];
+            document.getElementById('e-val').innerText = game.energy;
+            document.getElementById('s-val').innerText = game.science;
+            document.getElementById('t-val').innerText = game.turn;
+            render();
+        }
+
+        window.onresize = () => { resize(); render(); };
+    </script>
+</body>
+</html>
