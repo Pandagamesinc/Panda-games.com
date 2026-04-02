@@ -1,70 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Faith & Industry</title>
+    <title>Sovereign VI: Absolute Zero</title>
     <style>
-        body { background: #020205; color: #cdbe8c; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
-        #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; gap: 15px; padding: 10px; border-bottom: 2px solid #cdbe8c; z-index: 100; font-size: 12px; }
-        #side-panel { position: absolute; bottom: 20px; left: 20px; width: 280px; background: rgba(10,15,25,0.98); border: 2px solid #cdbe8c; padding: 15px; border-radius: 8px; z-index: 100; max-height: 70vh; overflow-y: auto; }
-        .stat { font-weight: bold; display: flex; align-items: center; gap: 4px; }
-        .btn { background: #cdbe8c; color: #000; border: none; padding: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; border-radius: 4px; font-size: 11px; }
+        body { background: #000; color: #cdbe8c; font-family: 'Courier New', Courier, monospace; margin: 0; overflow: hidden; }
+        /* Static UI that exists before JS loads */
+        #boot-layer { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 5px solid #111; }
+        #game-ui { display: none; position: absolute; top: 0; width: 100%; height: 100%; pointer-events: none; }
+        .panel { pointer-events: auto; background: rgba(0,0,0,0.9); border: 1px solid #cdbe8c; padding: 10px; }
+        #top-bar { display: flex; justify-content: center; gap: 20px; width: 100%; border-bottom: 2px solid #cdbe8c; }
+        #side-panel { position: absolute; bottom: 20px; left: 20px; width: 250px; min-height: 150px; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin: 4px 0; font-family: inherit; }
         .btn:hover { background: #fff; }
-        .item-card { background: #1a1a1a; padding: 8px; margin-top: 5px; border: 1px solid #333; border-radius: 4px; font-size: 11px; }
-        #boot-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        canvas { display: block; }
+        canvas { display: block; background: #050505; }
+        .stat { font-weight: bold; color: #00ffcc; }
     </style>
 </head>
-<body onload="init()">
+<body>
 
-    <div id="boot-screen">
-        <h1 style="letter-spacing: 8px;">SOVEREIGN VI</h1>
-        <button class="btn" style="width: 200px; padding: 15px;" onclick="startGame()">START CIVILIZATION</button>
+    <div id="boot-layer">
+        <h1 style="letter-spacing: 5px;">SOVEREIGN VI</h1>
+        <p style="color: #666; font-size: 12px;">CORE PROTOCOL v4.0</p>
+        <button id="start-trigger" class="btn" style="width: 200px; height: 50px;" onclick="manualStart()">MANUAL OVERRIDE START</button>
+        <p id="status-text" style="color: #444; font-size: 10px; margin-top: 20px;">READY FOR INPUT</p>
     </div>
 
-    <div id="ui-top">
-        <div class="stat">⚡<span id="res-e">200</span></div>
-        <div class="stat">⚛️<span id="res-s">0</span></div>
-        <div class="stat">🙏<span id="res-f">0</span></div>
-        <div class="stat">📅 TURN <span id="turn">1</span></div>
-        <button class="btn" style="width: 80px; margin: 0; background: #00ffcc;" onclick="endTurn()">NEXT</button>
-    </div>
+    <div id="game-ui">
+        <div id="top-bar" class="panel">
+            <div class="stat">ENG: <span id="e-val">200</span></div>
+            <div class="stat">SCI: <span id="s-val">0</span></div>
+            <div class="stat">FAITH: <span id="f-val">0</span></div>
+            <div class="stat">TURN: <span id="t-val">1</span></div>
+            <button class="btn" style="width: 80px; margin: 0; background: #00ffcc;" onclick="endTurn()">NEXT</button>
+        </div>
 
-    <div id="side-panel">
-        <div id="era-name" style="color:#00ffcc; font-size: 10px; font-weight: bold;">ANCIENT ERA</div>
-        <div id="religion-name" style="color:#ffcc00; font-size: 10px;">SECULAR SOCIETY</div>
-        <hr style="border:0; border-top:1px solid #333;">
-        <div id="selection-info">Select a unit or city.</div>
-        <div id="action-list"></div>
-    </div>
-
-    <canvas id="map"></canvas>
-
-    <script>
-        const canvas = document.getElementById('map');
-        const ctx = canvas.getContext('2d');
-        const HEX = 40;
-
-        let state = {
-            e: 250, s: 0, f: 0, t: 1, era: 0, faithBonus: 1,
-            grid: [], units: [], selected: null, religionChosen: false
-        };
-
-        const UNITS = {
-            'SETTLER': { sym: 'S', col: '#fff', m: 2, v: 2, cost: 100 },
-            'BUILDER': { sym: 'B', col: '#8d5', m: 2, v: 2, cost: 50, charges: 3 },
-            'WARRIOR': { sym: 'W', col: '#f44', m: 2, v: 2, cost: 40 },
-            'AI_SCOUT': { sym: '!', col: '#f0f', m: 2, v: 2, cost: 0 } // Enemy AI
-        };
-
-        const RELIGIONS = [
-            { name: "Divine Spark", bonus: "science", desc: "+2 Science per turn" },
-            { name: "Goddess of Harvest", bonus: "energy", desc: "+20 Energy per turn" },
-            { name: "Oral Tradition", bonus: "faith", desc: "+5 Faith per turn" }
-        ];
-
-        function init() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            for(let r=0; r<12; r++) {
-                state.grid[r] = [];
-                for(let q=0; q<16;
+        <div id="side-panel" class="panel">
+            <div id="era-name" style="font-size: 10px; color: #888;">ERA: ANCIENT
