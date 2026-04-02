@@ -1,31 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Realm</title>
+    <title>Sovereign VI: Stability</title>
     <style>
         body { background: #050508; color: #cdbe8c; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
-        #boot-layer { position: fixed; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #boot-layer { position: fixed; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #cdbe8c; z-index: 500; }
         #control-panel { position: absolute; bottom: 20px; left: 20px; width: 320px; background: rgba(15, 20, 30, 0.98); border: 2px solid #cdbe8c; padding: 20px; border-radius: 10px; z-index: 500; box-shadow: 0 0 15px #000; }
         .stat { font-size: 14px; font-weight: bold; margin: 0 10px; }
         .btn { background: #cdbe8c; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; border-radius: 4px; text-transform: uppercase; font-size: 12px; }
         .btn:hover { background: #fff; }
-        .btn.confirm { background: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
-        .prod-item { background: #222; border: 1px solid #444; padding: 8px; margin-top: 5px; cursor: pointer; border-radius: 4px; font-size: 11px; }
-        .prod-item:hover { background: #333; border-color: #cdbe8c; }
         #log { font-size: 11px; color: #00ffcc; margin-top: 10px; height: 45px; overflow: hidden; border-top: 1px solid #333; padding-top: 5px; }
-        canvas { display: block; }
+        canvas { display: block; cursor: crosshair; }
+        .prod-item { background: #222; border: 1px solid #444; padding: 8px; margin-top: 5px; cursor: pointer; border-radius: 4px; font-size: 11px; }
     </style>
 </head>
 <body>
 
     <div id="boot-layer">
-        <h1 style="letter-spacing: 5px;">SOVEREIGN VI</h1>
-        <button class="btn" style="width: 250px;" onclick="initGame()">CLAIM YOUR REALM</button>
+        <h1 style="letter-spacing: 8px; color: #cdbe8c;">SOVEREIGN VI</h1>
+        <p style="color: #666;">Resource Engine & Territory Protocol Loaded</p>
+        <button class="btn" style="width: 280px; height: 50px; font-size: 16px;" onclick="initGame()">BEGIN RECLAMATION</button>
     </div>
 
     <div id="ui-top">
-        <div class="stat">⚡ <span id="res-e">250</span></div>
+        <div class="stat">⚡ <span id="res-energy">250</span></div>
         <div class="stat">🪵 <span id="res-wood">0</span></div>
         <div class="stat">🪨 <span id="res-stone">0</span></div>
         <div class="stat">💎 <span id="res-lux">0</span></div>
@@ -34,9 +33,9 @@
     </div>
 
     <div id="control-panel">
-        <div id="sel-title" style="font-size: 18px; border-bottom: 1px solid #444; padding-bottom: 5px;">Awaiting Command</div>
+        <div id="sel-title" style="font-size: 18px; border-bottom: 1px solid #444; padding-bottom: 5px;">Awaiting Selection</div>
         <div id="action-list"></div>
-        <div id="log">> Map generation complete.</div>
+        <div id="log">> Satellite uplink stable.</div>
     </div>
 
     <canvas id="gameMap"></canvas>
@@ -44,137 +43,72 @@
     <script>
         const canvas = document.getElementById('gameMap');
         const ctx = canvas.getContext('2d');
-        const HEX_SIZE = 40;
+        const HEX_SIZE = 42;
 
         let state = {
             energy: 250, wood: 0, stone: 0, lux: 0,
             turn: 1, grid: [], units: [], selected: null,
-            pendingAction: null, unitIdCounter: 10
+            pendingAction: null, unitIdCounter: 100
         };
 
-        const RES_ICONS = { WOOD: '🌲', STONE: '⛰️', GEMS: '💎', GOLD: '🪙' };
-        
-        const UNIT_TYPES = {
-            'SETTLER': { symbol: 'S', color: '#fff', vision: 2, moves: 2, cost: { energy: 100 }, time: 5 },
-            'WARRIOR': { symbol: 'W', color: '#ff4444', vision: 2, moves: 2, cost: { energy: 40 }, time: 2 },
-            'SCOUT':   { symbol: 'Sc', color: '#ffcc00', vision: 3, moves: 3, cost: { energy: 30 }, time: 2 },
-            'ARCHER':  { symbol: 'A', color: '#9944ff', vision: 2, moves: 2, cost: { energy: 50, wood: 20 }, time: 3 },
-            'CATAPULT':{ symbol: 'Ct', color: '#888', vision: 1, moves: 1, cost: { energy: 80, stone: 40 }, time: 4 }
+        const ICONS = { WOOD: '🌲', STONE: '⛰️', GEMS: '💎', GOLD: '🪙', CITY: '🏛️', FARM: '🚜' };
+        const UNIT_DATA = {
+            'SETTLER': { symbol: 'S', color: '#fff', vision: 2, moves: 2, cost: { energy: 100 } },
+            'WARRIOR': { symbol: 'W', color: '#ff4444', vision: 2, moves: 2, cost: { energy: 40 } },
+            'SCOUT':   { symbol: 'Sc', color: '#ffcc00', vision: 3, moves: 3, cost: { energy: 30 } },
+            'ARCHER':  { symbol: 'A', color: '#9944ff', vision: 2, moves: 2, cost: { energy: 50, wood: 20 } },
+            'CATAPULT':{ symbol: 'Ct', color: '#888', vision: 1, moves: 1, cost: { energy: 80, stone: 40 } }
         };
 
         function initGame() {
-            const boot = document.getElementById('boot-layer');
-            boot.parentNode.removeChild(boot);
+            document.getElementById('boot-layer').style.display = 'none';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
 
+            // Generate Grid
             for(let r=0; r<12; r++) {
                 state.grid[r] = [];
                 for(let q=0; q<16; q++) {
-                    let type = Math.random() > 0.85 ? 'MTN' : 'PLN';
+                    let type = Math.random() > 0.88 ? 'MTN' : 'PLN';
                     let res = null;
-                    if(type === 'PLN') {
-                        let rand = Math.random();
-                        if(rand > 0.95) res = 'GEMS';
-                        else if(rand > 0.90) res = 'GOLD';
-                        else if(rand > 0.80) res = 'WOOD';
-                    } else if(type === 'MTN' && Math.random() > 0.5) {
-                        res = 'STONE';
-                    }
-
-                    state.grid[r][q] = { 
-                        q, r, type, res,
-                        explored: false, owner: null,
-                        improvement: null, queue: null, progress: 0 
-                    };
+                    if(type === 'PLN' && Math.random() > 0.75) {
+                        let rIdx = Math.random();
+                        res = rIdx > 0.9 ? 'GEMS' : (rIdx > 0.7 ? 'GOLD' : 'WOOD');
+                    } else if(type === 'MTN') { res = 'STONE'; }
+                    
+                    state.grid[r][q] = { q, r, type, res, explored: false, owner: null, improvement: null, queue: null, progress: 0 };
                 }
             }
 
-            spawnUnit(5, 5, 'SETTLER');
-            spawnUnit(6, 5, 'SCOUT');
+            spawnUnit(4, 4, 'SETTLER');
+            spawnUnit(5, 4, 'SCOUT');
             updateVision();
             draw();
         }
 
         function spawnUnit(q, r, type) {
-            const proto = UNIT_TYPES[type];
-            state.units.push({ id: state.unitIdCounter++, q, r, type, moves: proto.moves, maxMoves: proto.moves, vision: proto.vision });
+            state.units.push({ id: state.unitIdCounter++, q, r, type, moves: UNIT_DATA[type].moves });
             state.grid[r][q].explored = true;
         }
 
         function updateVision() {
             state.units.forEach(u => {
+                const vRange = UNIT_DATA[u.type].vision;
                 for(let r=0; r<12; r++) {
                     for(let q=0; q<16; q++) {
-                        const dist = Math.abs(u.q - q) + Math.abs(u.r - r);
-                        if(dist <= u.vision) state.grid[r][q].explored = true;
+                        if(Math.abs(u.q - q) + Math.abs(u.r - r) <= vRange) state.grid[r][q].explored = true;
                     }
                 }
             });
         }
 
-        function claimTerritory(cq, cr) {
-            for(let r=0; r<12; r++) {
-                for(let q=0; q<16; q++) {
-                    const dist = Math.abs(cq - q) + Math.abs(cr - r);
-                    if(dist <= 2) state.grid[r][q].owner = 'PLAYER';
-                }
-            }
-        }
-
         function getHexXY(q, r) {
             const offX = (canvas.width/2) - (8 * HEX_SIZE * 1.5);
             const offY = (canvas.height/2) - (6 * HEX_SIZE * 1.7);
-            return { x: offX + (HEX_SIZE * 1.5 * q), y: offY + (HEX_SIZE * Math.sqrt(3) * (r + 0.5 * (q % 2))) };
+            return { x: offX + (HEX_SIZE * 1.5 * q), y: offY + (HEX_SIZE * 1.73 * (r + 0.5 * (q % 2))) };
         }
 
         function draw() {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0,0,canvas.width, canvas.height);
-
+            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
             state.grid.flat().forEach(t => {
-                const {x, y} = getHexXY(t.q, t.r);
-                ctx.beginPath();
-                for(let i=0; i<6; i++) {
-                    let a = 2 * Math.PI / 6 * i;
-                    ctx.lineTo(x + HEX_SIZE * 0.95 * Math.cos(a), y + HEX_SIZE * 0.95 * Math.sin(a));
-                }
-                ctx.closePath();
-                
-                ctx.fillStyle = t.explored ? (t.type === 'MTN' ? "#222" : "#1a2418") : "#050505";
-                ctx.fill();
-                
-                // Territory Lines
-                if(t.owner === 'PLAYER' && t.explored) {
-                    ctx.strokeStyle = "rgba(205, 190, 140, 0.4)";
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                } else {
-                    ctx.strokeStyle = "#111";
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-
-                if(t.explored && t.res) {
-                    ctx.font = "12px Arial";
-                    ctx.fillText(RES_ICONS[t.res], x-8, y-10);
-                }
-                if(t.improvement === 'CITY') ctx.fillText("🏛️", x-8, y+8);
-                if(t.improvement === 'FARM') ctx.fillText("🚜", x-8, y+8);
-            });
-
-            state.units.forEach(u => {
-                const {x, y} = getHexXY(u.q, u.r);
-                ctx.fillStyle = u.moves > 0 ? UNIT_TYPES[u.type].color : "#444";
-                ctx.beginPath(); ctx.arc(x, y, 14, 0, 7); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.font = "bold 10px Arial";
-                ctx.fillText(UNIT_TYPES[u.type].symbol, x-5, y+4);
-            });
-        }
-
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            state.grid.flat().forEach(t => {
-                const {x, y} = getHexXY(t.q, t.r);
-                if(Math.sqrt((mx-x)**2 + (
+                const {x, y} = getHexXY(t.q, t.r
