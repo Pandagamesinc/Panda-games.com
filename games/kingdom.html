@@ -1,212 +1,145 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Evolution</title>
+    <title>Sovereign VI: Recovery</title>
     <style>
-        body { background: #000; color: #cdbe8c; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        #top-bar { pointer-events: auto; background: rgba(0,0,0,0.95); display: flex; justify-content: center; gap: 25px; padding: 12px; border-bottom: 2px solid #cdbe8c; }
-        #side-panel { pointer-events: auto; position: absolute; bottom: 20px; left: 20px; width: 280px; background: rgba(10,10,15,0.98); border: 2px solid #cdbe8c; padding: 15px; border-radius: 8px; box-shadow: 0 0 20px #000; }
-        .btn { pointer-events: auto; background: #cdbe8c; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; border-radius: 4px; text-transform: uppercase; font-size: 11px; }
+        /* Minimalist CSS to prevent rendering conflicts */
+        body { background: #000; color: #0f0; font-family: monospace; margin: 0; padding: 0; }
+        #debug-ui { position: absolute; top: 10px; left: 10px; background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0; z-index: 100; font-size: 12px; }
+        #actions-panel { position: absolute; bottom: 10px; left: 10px; background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0; z-index: 100; width: 250px; }
+        canvas { display: block; border: 1px solid #222; }
+        .btn { background: #0f0; color: #000; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold; margin: 2px; }
         .btn:hover { background: #fff; }
-        .stat { font-weight: bold; font-size: 14px; text-shadow: 1px 1px #000; }
-        #boot-button { pointer-events: auto; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 25px 50px; font-size: 22px; z-index: 100; border: 4px solid #00ffcc; background: #000; color: #00ffcc; cursor: pointer; letter-spacing: 4px; }
-        canvas { display: block; background: #020202; }
-        .unit-card { background: #1a1a1a; padding: 8px; margin-top: 5px; border: 1px solid #333; font-size: 11px; border-radius: 4px; }
-        .locked { opacity: 0.4; font-style: italic; }
     </style>
 </head>
-<body>
+<body onload="boot()">
 
-    <button id="boot-button" onclick="forceStart()">INITIALIZE TIMELINE</button>
-
-    <div id="ui-layer">
-        <div id="top-bar">
-            <div class="stat">⚡ <span id="e-val">250</span></div>
-            <div class="stat">⚛️ <span id="s-val">0</span></div>
-            <div class="stat">📅 TURN: <span id="t-val">1</span></div>
-            <button class="btn" style="width: 100px; margin: 0; background: #00ffcc;" onclick="endTurn()">END TURN</button>
-        </div>
-
-        <div id="side-panel">
-            <div id="era-tag" style="color:#00ffcc; font-size: 12px; font-weight: bold; letter-spacing: 1px;">ERA: ANCIENT</div>
-            <hr style="border: 0; border-top: 1px solid #333; margin: 10px 0;">
-            <div id="info-box" style="font-size: 13px;">Select a settlement or unit.</div>
-            <div id="actions"></div>
-        </div>
+    <div id="debug-ui">
+        SOVEREIGN VI RECOVERY<br>
+        ENERGY: <span id="e">200</span> | SCI: <span id="s">0</span> | TURN: <span id="t">1</span><br>
+        <button class="btn" onclick="endTurn()">NEXT TURN</button>
+        <button class="btn" style="background:red; color:white;" onclick="boot()">MANUAL REBOOT</button>
     </div>
 
-    <canvas id="world"></canvas>
+    <div id="actions-panel">
+        <div id="msg">Initializing...</div>
+        <div id="btns"></div>
+    </div>
+
+    <canvas id="gc"></canvas>
 
     <script>
-        const canvas = document.getElementById('world');
+        const canvas = document.getElementById('gc');
         const ctx = canvas.getContext('2d');
-        const HEX = 42;
+        const H = 40; // Hex Size
 
-        let game = {
-            energy: 250, science: 0, turn: 1, era: 0,
-            grid: [], units: [], selected: null
+        let state = {
+            e: 250, s: 0, t: 1, era: 0,
+            grid: [], units: [], sel: null
         };
-
-        const ERAS = ["ANCIENT", "MEDIEVAL", "INDUSTRIAL", "INFORMATION"];
 
         const DATA = {
-            'SETTLER':  { sym: 'S',  col: '#fff', m: 2, v: 2, c: 100, e: 0 },
-            'WARRIOR':  { sym: 'W',  col: '#f44', m: 2, v: 2, c: 40,  e: 0 },
-            'ARCHER':   { sym: 'A',  col: '#94f', m: 2, v: 2, c: 60,  e: 0 },
-            'KNIGHT':   { sym: 'K',  col: '#ff8', m: 4, v: 2, c: 120, e: 1 },
-            'MUSKET':   { sym: 'M',  col: '#8a8', m: 2, v: 2, c: 150, e: 2 },
-            'TANK':     { sym: 'T',  col: '#555', m: 3, v: 3, c: 300, e: 2 },
-            'CYBORG':   { sym: 'X',  col: '#0ff', m: 4, v: 4, c: 500, e: 3 }
+            'SETTLER': { sym: 'S', col: '#fff', m: 2, v: 2, cost: 100, era: 0 },
+            'WARRIOR': { sym: 'W', col: '#f00', m: 2, v: 2, cost: 40, era: 0 },
+            'KNIGHT':  { sym: 'K', col: '#ff0', m: 4, v: 2, cost: 120, era: 1 },
+            'TANK':    { sym: 'T', col: '#888', m: 3, v: 3, cost: 300, era: 2 },
+            'CYBORG':  { sym: 'X', col: '#0ff', m: 4, v: 4, cost: 500, era: 3 }
         };
 
-        function forceStart() {
-            document.getElementById('boot-button').style.display = 'none';
-            resize();
-            createMap();
-            spawn(4, 4, 'SETTLER');
-            spawn(5, 4, 'WARRIOR');
-            render();
-        }
-
-        function resize() {
+        function boot() {
+            // Force Canvas Size
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-        }
 
-        function createMap() {
-            for(let r=0; r<12; r++) {
-                game.grid[r] = [];
-                for(let q=0; q<16; q++) {
-                    game.grid[r][q] = {
-                        q, r, 
-                        type: Math.random() > 0.88 ? 'MTN' : 'PLN',
-                        seen: false, city: false
-                    };
+            // Build simple grid
+            state.grid = [];
+            for(let r=0; r<10; r++) {
+                for(let q=0; q<12; q++) {
+                    state.grid.push({ q, r, type: Math.random() > 0.9 ? 'M' : 'P', seen: false, city: false });
                 }
             }
+
+            // Reset Units
+            state.units = [];
+            spawn(2, 2, 'SETTLER');
+            spawn(3, 2, 'WARRIOR');
+            
+            update();
+            console.log("Game Booted");
         }
 
         function spawn(q, r, type) {
-            game.units.push({ id: Math.random(), q, r, type, moves: DATA[type].m });
+            state.units.push({ id: Math.random(), q, r, type, moves: DATA[type].m });
             reveal(q, r, DATA[type].v);
         }
 
         function reveal(cq, cr, range) {
-            game.grid.flat().forEach(t => {
+            state.grid.forEach(t => {
                 if (Math.abs(cq - t.q) + Math.abs(cr - t.r) <= range) t.seen = true;
             });
         }
 
-        function getPos(q, r) {
-            const ox = (canvas.width/2) - (8 * HEX * 1.5);
-            const oy = (canvas.height/2) - (6 * HEX * 1.7);
-            return { x: ox + (q * HEX * 1.5), y: oy + (HEX * 1.73 * (r + 0.5 * (q % 2))) };
+        function getXY(q, r) {
+            const ox = 50; 
+            const oy = 80;
+            return { x: ox + (q * H * 1.5), y: oy + (H * 1.73 * (r + 0.5 * (q % 2))) };
         }
 
-        function render() {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            game.grid.flat().forEach(t => {
-                const {x, y} = getPos(t.q, t.r);
+        function update() {
+            // Background
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            // Draw Tiles
+            state.grid.forEach(t => {
+                const {x, y} = getXY(t.q, t.r);
                 ctx.beginPath();
-                for(let i=0; i<6; i++) ctx.lineTo(x + HEX * Math.cos(i * Math.PI/3), y + HEX * Math.sin(i * Math.PI/3));
+                for(let i=0; i<6; i++) ctx.lineTo(x + H * Math.cos(i * Math.PI/3), y + H * Math.sin(i * Math.PI/3));
                 ctx.closePath();
-                ctx.fillStyle = t.seen ? (t.type === 'MTN' ? "#222" : "#142111") : "#080808";
+                ctx.fillStyle = t.seen ? (t.type === 'M' ? "#333" : "#020") : "#050505";
                 ctx.fill();
-                ctx.strokeStyle = (game.selected?.q === t.q && game.selected?.r === t.r) ? "#00ffcc" : "#111";
-                ctx.lineWidth = (game.selected?.q === t.q && game.selected?.r === t.r) ? 2 : 1;
+                ctx.strokeStyle = (state.sel && state.sel.q === t.q && state.sel.r === t.r) ? "#0f0" : "#111";
                 ctx.stroke();
-                if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.font="16px Arial"; ctx.fillText("🏛️", x-10, y+6); }
+                if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.fillText("CITY", x-12, y+5); }
             });
 
-            game.units.forEach(u => {
-                const {x, y} = getPos(u.q, u.r);
+            // Draw Units
+            state.units.forEach(u => {
+                const {x, y} = getXY(u.q, u.r);
                 ctx.fillStyle = u.moves > 0 ? DATA[u.type].col : "#444";
-                ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.font = "bold 11px Arial";
-                ctx.fillText(DATA[u.type].sym, x-6, y+4);
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, 7); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.fillText(DATA[u.type].sym, x-4, y+4);
             });
+
+            document.getElementById('e').innerText = state.e;
+            document.getElementById('s').innerText = state.s;
+            document.getElementById('t').innerText = state.t;
         }
 
         canvas.onclick = (e) => {
-            game.grid.flat().forEach(t => {
-                const {x, y} = getPos(t.q, t.r);
-                if(Math.sqrt((e.clientX-x)**2 + (e.clientY-y)**2) < HEX) {
-                    const unitAt = game.units.find(u => u.q === t.q && u.r === t.r);
-                    if(game.selected?.type === 'UNIT' && !unitAt) {
-                        if(game.selected.data.moves > 0) {
-                            game.selected.data.q = t.q; game.selected.data.r = t.r;
-                            game.selected.data.moves--; reveal(t.q, t.r, DATA[game.selected.data.type].v);
-                            game.selected = null;
+            state.grid.forEach(t => {
+                const {x, y} = getXY(t.q, t.r);
+                if(Math.sqrt((e.clientX-x)**2 + (e.clientY-y)**2) < H) {
+                    const uAt = state.units.find(u => u.q === t.q && u.r === t.r);
+                    if(state.sel && state.sel.u && !uAt) {
+                        // Move
+                        if(state.sel.u.moves > 0) {
+                            state.sel.u.q = t.q; state.sel.u.r = t.r;
+                            state.sel.u.moves--; reveal(t.q, t.r, DATA[state.sel.u.type].v);
+                            state.sel = null;
                         }
                     } else {
-                        game.selected = unitAt ? {type:'UNIT', data: unitAt, q: t.q, r: t.r} : {type:'TILE', data: t, q: t.q, r: t.r};
+                        state.sel = uAt ? {u: uAt, q: t.q, r: t.r} : {t: t, q: t.q, r: t.r};
                     }
-                    render(); updateUI();
+                    update();
+                    ui();
                 }
             });
         };
 
-        function updateUI() {
-            const actions = document.getElementById('actions');
-            const info = document.getElementById('info-box');
-            actions.innerHTML = '';
-            if(!game.selected) return;
+        function ui() {
+            const btns = document.getElementById('btns');
+            const msg = document.getElementById('msg');
+            btns.innerHTML = '';
             
-            if(game.selected.type === 'UNIT') {
-                const u = game.selected.data;
-                info.innerText = u.type + " [" + u.moves + " Moves Left]";
-                if(u.type === 'SETTLER') {
-                    const b = document.createElement('button'); b.className='btn'; b.innerText="FOUND SETTLEMENT";
-                    b.onclick = () => {
-                        game.grid[u.r][u.q].city = true;
-                        game.units = game.units.filter(x => x.id !== u.id);
-                        game.selected = null; render(); updateUI();
-                    };
-                    actions.appendChild(b);
-                }
-            } else if(game.selected.data.city) {
-                info.innerText = "City Command Center";
-                Object.entries(DATA).forEach(([name, d]) => {
-                    const div = document.createElement('div');
-                    div.className = 'unit-card' + (d.e > game.era ? ' locked' : '');
-                    div.innerHTML = `<strong>${name}</strong><br>Cost: ${d.c}⚡` + (d.e > game.era ? `<br>Requires Era ${d.e}` : '');
-                    if(d.e <= game.era) {
-                        div.style.cursor = 'pointer';
-                        div.onclick = () => {
-                            if(game.energy >= d.c) {
-                                game.energy -= d.c; spawn(game.selected.q, game.selected.r, name);
-                                render(); updateUI();
-                                document.getElementById('e-val').innerText = game.energy;
-                            }
-                        };
-                    }
-                    actions.appendChild(div);
-                });
-            }
-        }
-
-        function endTurn() {
-            let income = 50;
-            game.grid.flat().forEach(t => { if(t.city) income += 40; });
-            game.energy += income; 
-            game.science += 15; 
-            game.turn++;
-            game.units.forEach(u => u.moves = DATA[u.type].m);
-
-            // Era Check
-            if(game.science >= 100 && game.era === 0) game.era = 1;
-            if(game.science >= 300 && game.era === 1) game.era = 2;
-            if(game.science >= 700 && game.era === 2) game.era = 3;
-
-            document.getElementById('era-tag').innerText = "ERA: " + ERAS[game.era];
-            document.getElementById('e-val').innerText = game.energy;
-            document.getElementById('s-val').innerText = game.science;
-            document.getElementById('t-val').innerText = game.turn;
-            render();
-        }
-
-        window.onresize = () => { resize(); render(); };
-    </script>
-</body>
-</html>
+            if(!
