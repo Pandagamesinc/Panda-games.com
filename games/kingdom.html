@@ -1,41 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Stability</title>
+    <title>Sovereign VI: Eras</title>
     <style>
-        body { background: #050508; color: #cdbe8c; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
-        #boot-layer { position: fixed; width: 100%; height: 100%; background: #000; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #cdbe8c; z-index: 500; }
-        #control-panel { position: absolute; bottom: 20px; left: 20px; width: 320px; background: rgba(15, 20, 30, 0.98); border: 2px solid #cdbe8c; padding: 20px; border-radius: 10px; z-index: 500; box-shadow: 0 0 15px #000; }
-        .stat { font-size: 14px; font-weight: bold; margin: 0 10px; }
-        .btn { background: #cdbe8c; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; border-radius: 4px; text-transform: uppercase; font-size: 12px; }
+        body { background: #050508; color: #cdbe8c; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        #boot-layer { position: fixed; inset: 0; background: radial-gradient(circle, #1a1a2e 0%, #000 100%); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #ui-top { position: absolute; top: 0; width: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; gap: 20px; padding: 12px; border-bottom: 2px solid #cdbe8c; z-index: 500; font-size: 13px; }
+        #control-panel { position: absolute; bottom: 20px; left: 20px; width: 300px; background: rgba(10, 15, 25, 0.95); border: 2px solid #cdbe8c; padding: 15px; border-radius: 8px; z-index: 500; box-shadow: 0 0 20px #000; }
+        .stat-box { display: flex; align-items: center; gap: 5px; font-weight: bold; }
+        .btn { background: #cdbe8c; color: #000; border: none; padding: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; border-radius: 3px; text-transform: uppercase; }
         .btn:hover { background: #fff; }
-        #log { font-size: 11px; color: #00ffcc; margin-top: 10px; height: 45px; overflow: hidden; border-top: 1px solid #333; padding-top: 5px; }
-        canvas { display: block; cursor: crosshair; }
-        .prod-item { background: #222; border: 1px solid #444; padding: 8px; margin-top: 5px; cursor: pointer; border-radius: 4px; font-size: 11px; }
+        .prod-item { background: #1a1a1a; border: 1px solid #333; padding: 8px; margin-top: 4px; cursor: pointer; font-size: 11px; border-radius: 3px; }
+        .prod-item:hover { border-color: #00ffcc; background: #222; }
+        .locked { opacity: 0.5; cursor: not-allowed; font-style: italic; }
+        #era-banner { color: #00ffcc; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; border-bottom: 1px solid #333; }
     </style>
 </head>
 <body>
 
     <div id="boot-layer">
-        <h1 style="letter-spacing: 8px; color: #cdbe8c;">SOVEREIGN VI</h1>
-        <p style="color: #666;">Resource Engine & Territory Protocol Loaded</p>
-        <button class="btn" style="width: 280px; height: 50px; font-size: 16px;" onclick="initGame()">BEGIN RECLAMATION</button>
+        <h1 style="letter-spacing: 10px;">SOVEREIGN VI</h1>
+        <p id="boot-status">Systems Ready...</p>
+        <button class="btn" style="width: 200px;" onclick="startGame()">ENTER WORLD</button>
     </div>
 
     <div id="ui-top">
-        <div class="stat">⚡ <span id="res-energy">250</span></div>
-        <div class="stat">🪵 <span id="res-wood">0</span></div>
-        <div class="stat">🪨 <span id="res-stone">0</span></div>
-        <div class="stat">💎 <span id="res-lux">0</span></div>
-        <div class="stat">TURN: <span id="turn-val">1</span></div>
-        <button class="btn" style="width: 120px; margin: 0; background: #00ffcc;" onclick="processTurn()">END TURN</button>
+        <div class="stat-box">⚡<span id="res-e">200</span></div>
+        <div class="stat-box">⚛️<span id="res-s">0</span></div>
+        <div class="stat-box">🪵<span id="res-w">0</span></div>
+        <div class="stat-box">🪨<span id="res-st">0</span></div>
+        <div class="stat-box">TURN: <span id="turn-val">1</span></div>
+        <button class="btn" style="width: 100px; margin: 0; background: #00ffcc;" onclick="processTurn()">END TURN</button>
     </div>
 
     <div id="control-panel">
-        <div id="sel-title" style="font-size: 18px; border-bottom: 1px solid #444; padding-bottom: 5px;">Awaiting Selection</div>
+        <div id="era-banner">Ancient Era</div>
+        <div id="sel-title" style="font-size: 16px; margin-bottom: 8px;">Awaiting Input</div>
         <div id="action-list"></div>
-        <div id="log">> Satellite uplink stable.</div>
     </div>
 
     <canvas id="gameMap"></canvas>
@@ -43,72 +44,63 @@
     <script>
         const canvas = document.getElementById('gameMap');
         const ctx = canvas.getContext('2d');
-        const HEX_SIZE = 42;
+        const HEX_SIZE = 40;
+
+        const CIV_DATA = {
+            ERAS: {
+                ANCIENT: { name: "Ancient Era", scienceReq: 0 },
+                MEDIEVAL: { name: "Medieval Era", scienceReq: 100 }
+            },
+            UNITS: {
+                'SETTLER': { sym: 'S', color: '#fff', moves: 2, vision: 2, cost: 100, era: 'ANCIENT' },
+                'WARRIOR': { sym: 'W', color: '#f44', moves: 2, vision: 2, cost: 40, era: 'ANCIENT' },
+                'SCOUT':   { sym: 'Sc', color: '#fc0', moves: 3, vision: 3, cost: 30, era: 'ANCIENT' },
+                'ARCHER':  { sym: 'A', color: '#94f', moves: 2, vision: 2, cost: 60, era: 'ANCIENT' },
+                'KNIGHT':  { sym: 'K', color: '#ff8', moves: 4, vision: 2, cost: 120, era: 'MEDIEVAL' },
+                'CROSSBOW':{ sym: 'Cb', color: '#0af', moves: 2, vision: 2, cost: 90, era: 'MEDIEVAL' }
+            }
+        };
 
         let state = {
-            energy: 250, wood: 0, stone: 0, lux: 0,
-            turn: 1, grid: [], units: [], selected: null,
-            pendingAction: null, unitIdCounter: 100
+            e: 200, s: 0, w: 0, st: 0,
+            turn: 1, era: 'ANCIENT',
+            grid: [], units: [], selected: null, pending: null
         };
 
-        const ICONS = { WOOD: '🌲', STONE: '⛰️', GEMS: '💎', GOLD: '🪙', CITY: '🏛️', FARM: '🚜' };
-        const UNIT_DATA = {
-            'SETTLER': { symbol: 'S', color: '#fff', vision: 2, moves: 2, cost: { energy: 100 } },
-            'WARRIOR': { symbol: 'W', color: '#ff4444', vision: 2, moves: 2, cost: { energy: 40 } },
-            'SCOUT':   { symbol: 'Sc', color: '#ffcc00', vision: 3, moves: 3, cost: { energy: 30 } },
-            'ARCHER':  { symbol: 'A', color: '#9944ff', vision: 2, moves: 2, cost: { energy: 50, wood: 20 } },
-            'CATAPULT':{ symbol: 'Ct', color: '#888', vision: 1, moves: 1, cost: { energy: 80, stone: 40 } }
-        };
-
-        function initGame() {
+        function startGame() {
             document.getElementById('boot-layer').style.display = 'none';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-
-            // Generate Grid
+            
+            // Map Generation
             for(let r=0; r<12; r++) {
                 state.grid[r] = [];
                 for(let q=0; q<16; q++) {
-                    let type = Math.random() > 0.88 ? 'MTN' : 'PLN';
-                    let res = null;
-                    if(type === 'PLN' && Math.random() > 0.75) {
-                        let rIdx = Math.random();
-                        res = rIdx > 0.9 ? 'GEMS' : (rIdx > 0.7 ? 'GOLD' : 'WOOD');
-                    } else if(type === 'MTN') { res = 'STONE'; }
-                    
-                    state.grid[r][q] = { q, r, type, res, explored: false, owner: null, improvement: null, queue: null, progress: 0 };
+                    let type = Math.random() > 0.85 ? 'MTN' : 'PLN';
+                    let res = Math.random() > 0.8 ? (type === 'MTN' ? 'STONE' : 'WOOD') : null;
+                    state.grid[r][q] = { q, r, type, res, explored: false, owner: null, city: false };
                 }
             }
 
-            spawnUnit(4, 4, 'SETTLER');
-            spawnUnit(5, 4, 'SCOUT');
+            spawnUnit(5, 5, 'SETTLER');
+            spawnUnit(6, 5, 'SCOUT');
             updateVision();
             draw();
         }
 
         function spawnUnit(q, r, type) {
-            state.units.push({ id: state.unitIdCounter++, q, r, type, moves: UNIT_DATA[type].moves });
+            state.units.push({ id: Math.random(), q, r, type, moves: CIV_DATA.UNITS[type].moves });
             state.grid[r][q].explored = true;
         }
 
         function updateVision() {
             state.units.forEach(u => {
-                const vRange = UNIT_DATA[u.type].vision;
-                for(let r=0; r<12; r++) {
-                    for(let q=0; q<16; q++) {
-                        if(Math.abs(u.q - q) + Math.abs(u.r - r) <= vRange) state.grid[r][q].explored = true;
-                    }
+                const vis = CIV_DATA.UNITS[u.type].vision;
+                for(let r=0; r<12; r++) for(let q=0; q<16; q++) {
+                    if(Math.abs(u.q-q) + Math.abs(u.r-r) <= vis) state.grid[r][q].explored = true;
                 }
             });
         }
 
         function getHexXY(q, r) {
-            const offX = (canvas.width/2) - (8 * HEX_SIZE * 1.5);
-            const offY = (canvas.height/2) - (6 * HEX_SIZE * 1.7);
-            return { x: offX + (HEX_SIZE * 1.5 * q), y: offY + (HEX_SIZE * 1.73 * (r + 0.5 * (q % 2))) };
-        }
-
-        function draw() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
-            state.grid.flat().forEach(t => {
-                const {x, y} = getHexXY(t.q, t.r
+            const ox = (canvas.width/
