@@ -1,126 +1,436 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sovereign VI: Direct</title>
+    <title>Sovereign Stratagem: Total Domination</title>
     <style>
-        body { background: #000; color: #cdbe8c; font-family: monospace; margin: 0; overflow: hidden; text-align: center; }
-        #boot-ui { position: fixed; inset: 0; background: #000; z-index: 999; padding-top: 20vh; }
-        #game-layout { display: none; } /* Hidden until Start is clicked */
-        .panel { position: absolute; background: rgba(0,0,0,0.9); border: 1px solid #cdbe8c; padding: 10px; z-index: 10; }
-        #top { top: 0; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #cdbe8c; height: 40px; align-items: center; }
-        #actions { bottom: 20px; left: 20px; width: 240px; min-height: 120px; text-align: left; }
-        .btn { background: #cdbe8c; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; }
+        body { background: #050505; color: #00ffcc; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
+        #game-ui { position: absolute; top: 10px; left: 10px; width: 380px; background: rgba(10,10,15,0.95); border: 1px solid #00ffcc; padding: 15px; z-index: 100; box-shadow: 0 0 20px rgba(0,255,204,0.3); border-radius: 8px; }
+        #map-canvas { background: #000; cursor: crosshair; }
+        .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .res-box { background: #1a1a1a; padding: 8px; border-radius: 4px; border-left: 3px solid #00ffcc; }
+        .label { font-size: 10px; color: #aaa; text-transform: uppercase; }
+        .val { font-size: 16px; font-weight: bold; color: #fff; }
+        .log { height: 160px; background: #000; border: 1px solid #222; overflow-y: scroll; font-size: 11px; margin-top: 10px; padding: 8px; color: #00ffcc; }
+        .tabs { display: flex; gap: 5px; margin-top: 10px; }
+        .tab-btn { flex: 1; padding: 6px; font-size: 10px; background: #222; color: #fff; border: 1px solid #444; cursor: pointer; }
+        .tab-btn.active { background: #00ffcc; color: #000; }
+        .action-pane { display: none; margin-top: 10px; }
+        .action-pane.active { display: block; }
+        .btn { background: #00ffcc; color: #000; border: none; padding: 10px; cursor: pointer; margin-top: 5px; width: 100%; font-weight: bold; border-radius: 4px; }
         .btn:hover { background: #fff; }
-        canvas { display: block; background: #050505; cursor: crosshair; }
-        .stat { font-weight: bold; color: #00ffcc; font-size: 14px; }
+        .btn:disabled { background: #333; color: #777; cursor: default; }
+        #mode-indicator { font-size: 11px; color: #aaa; margin-top: 6px; }
     </style>
 </head>
 <body>
 
-    <div id="boot-ui">
-        <h1 style="letter-spacing: 10px; color: #cdbe8c;">SOVEREIGN VI</h1>
-        <p style="color: #444;">V5.0 EMERGENCY BOOT</p>
-        <button class="btn" style="width: 250px; font-size: 18px;" onclick="runGame()">ACTIVATE ENGINE</button>
-    </div>
-
-    <div id="game-layout">
-        <div id="top" class="panel">
-            <div class="stat">⚡ <span id="e">250</span></div>
-            <div class="stat">⚛️ <span id="s">0</span></div>
-            <div class="stat">🙏 <span id="f">0</span></div>
-            <div class="stat">TURN <span id="t">1</span></div>
-            <button class="btn" style="width: 80px; margin: 0 0 0 20px; background: #00ffcc;" onclick="nextTurn()">NEXT</button>
+    <div id="game-ui">
+        <div class="res-grid">
+            <div class="res-box"><div class="label">Energy</div><div class="val" id="ui-energy">150</div></div>
+            <div class="res-box"><div class="label">Weariness</div><div class="val" id="ui-weary">0</div></div>
+            <div class="res-box"><div class="label">Army ATK</div><div class="val" id="ui-atk">0</div></div>
+            <div class="res-box"><div class="label">Capitals</div><div class="val" id="ui-caps">1/4</div></div>
         </div>
 
-        <div id="actions" class="panel">
-            <div id="unit-name" style="color:#00ffcc; margin-bottom: 10px;">Select Unit/City</div>
-            <div id="btn-list"></div>
+        <div id="mode-indicator">Mode: None</div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab(this,'units')">War Room</button>
+            <button class="tab-btn" onclick="showTab(this,'build')">Cities</button>
+            <button class="tab-btn" onclick="showTab(this,'info')">Intel</button>
         </div>
 
-        <canvas id="c"></canvas>
+        <div id="units-pane" class="action-pane active">
+            <button class="btn" onclick="spawnUnit('Militia', 50, 10, 2)">Summon Militia (50 E)</button>
+            <button class="btn" onclick="spawnUnit('Necromancer', 200, 25, 15)">Summon Necro (200 E)</button>
+            <hr style="border: 0.5px solid #333">
+            <button class="btn" style="background: #ff4444" onclick="setMode('Siege')">Initiate Siege</button>
+        </div>
+
+        <div id="build-pane" class="action-pane">
+            <button class="btn" onclick="prepareSettler()">New Settler (250 E)</button>
+            <button class="btn" onclick="prepareCampus()">Place Campus (100 E)</button>
+        </div>
+
+        <div id="info-pane" class="action-pane">
+            <div id="tile-info" style="font-size: 12px; color: #fff;">Click map for details...</div>
+        </div>
+
+        <div class="log" id="game-log">> Sovereign Awakening...</div>
     </div>
+
+    <canvas id="map-canvas"></canvas>
 
     <script>
-        // Use very simple global variables
-        var canvas, ctx, grid = [], units = [], selected = null;
-        var energy = 250, science = 0, faith = 0, turn = 1, era = 0;
-        var H = 42; // Hex size
+        const HEX_SIZE = 36;
+        const MAP_W = 22;
+        const MAP_H = 18;
 
-        function runGame() {
-            // 1. Swap UI
-            document.getElementById('boot-ui').style.display = 'none';
-            document.getElementById('game-layout').style.display = 'block';
+        const COLORS = {
+            VOID: "#000",
+            PLAINS: "#2d4c1e",
+            MOUNTAIN: "#444",
+            WATER: "#1a3a5a",
+            SWAMP: "#1e2d24",
+            CITY: "#ffcc00",
+            ENEMY: "#ff4444"
+        };
 
-            // 2. Setup Canvas
-            canvas = document.getElementById('c');
-            ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        const EXPLORE_COST = 5;
+        const SETTLER_COST = 250;
+        const CAMPUS_COST = 100;
+        const CITY_FORT_BASE = 200;
+        const ENEMY_FORT_BASE = 300;
 
-            // 3. Create Grid
-            for(var r=0; r<12; r++) {
-                grid[r] = [];
-                for(var q=0; q<16; q++) {
-                    grid[r][q] = { q:q, r:r, type: Math.random()>0.9?'M':'P', seen:false, city:false, impr:null, owner:null };
+        let canvas, ctx;
+
+        let game = {
+            energy: 150,
+            weary: 0,
+            caps: 1,
+            army: [],
+            mode: null,
+            grid: []
+        };
+
+        class Hex {
+            constructor(q, r, type) {
+                this.q = q;
+                this.r = r;
+                this.type = type;
+                this.explored = false;
+                this.owned = false;
+                this.improvement = null; // "CITY", "CAMPUS"
+                this.fortification = 0;
+            }
+        }
+
+        function init() {
+            for (let r = 0; r < MAP_H; r++) {
+                game.grid[r] = [];
+                for (let q = 0; q < MAP_W; q++) {
+                    let type = Math.random() > 0.85 ? "MOUNTAIN" : "PLAINS";
+                    if (Math.random() > 0.95) type = "SWAMP";
+                    let h = new Hex(q, r, type);
+
+                    // Enemy capitals
+                    if ((q === 5 && r === 5) || (q === 18 && r === 14) || (q === 18 && r === 4)) {
+                        h.type = "ENEMY";
+                        h.fortification = ENEMY_FORT_BASE;
+                        h.explored = true;
+                    }
+                    game.grid[r][q] = h;
                 }
             }
-
-            // 4. Starting Units
-            addUnit(4, 4, 'SETTLER', 'P');
-            addUnit(5, 5, 'WARRIOR', 'P');
-            addUnit(13, 9, 'AI', 'AI');
-
+            // Player capital
+            let start = game.grid[9][10];
+            start.type = "PLAINS";
+            start.improvement = "CITY";
+            start.owned = true;
+            start.explored = true;
+            start.fortification = CITY_FORT_BASE;
+            reveal(10, 9, 3);
             draw();
         }
 
-        function addUnit(q, r, type, side) {
-            var u = { id:Math.random(), q:q, r:r, type:type, side:side, m:2 };
-            units.push(u);
-            if(side === 'P') reveal(q, r, 2);
-        }
-
-        function reveal(cq, cr, range) {
-            for(var r=0; r<12; r++) {
-                for(var q=0; q<16; q++) {
-                    if(Math.abs(cq-q) + Math.abs(cr-r) <= range) grid[r][q].seen = true;
+        function reveal(q, r, range) {
+            for (let i = r - range; i <= r + range; i++) {
+                for (let j = q - range; j <= q + range; j++) {
+                    if (game.grid[i] && game.grid[i][j]) {
+                        game.grid[i][j].explored = true;
+                    }
                 }
             }
         }
 
-        function getXY(q, r) {
-            var ox = (canvas.width/2) - (8 * H * 1.5);
-            var oy = (canvas.height/2) - (6 * H * 1.7);
-            return { x: ox + (q * H * 1.5), y: oy + (H * 1.73 * (r + 0.5 * (q % 2))) };
+        function spawnUnit(name, cost, atk, bus) {
+            if (game.energy >= cost) {
+                game.energy -= cost;
+                game.army.push({ name, atk, bus });
+                addLog(`Summoned ${name}. Army ATK increased.`);
+            } else {
+                addLog("Not enough Energy to summon.");
+            }
+        }
+
+        function prepareSettler() {
+            if (game.energy < SETTLER_COST) {
+                addLog("You lack the Energy to prepare a Settler.");
+                return;
+            }
+            setMode("Settler");
+        }
+
+        function prepareCampus() {
+            if (game.energy < CAMPUS_COST) {
+                addLog("You lack the Energy to place a Campus.");
+                return;
+            }
+            setMode("Campus");
+        }
+
+        function handleInteract(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left - 100;
+            const my = e.clientY - rect.top - 100;
+
+            let q = Math.round(mx / (HEX_SIZE * 1.5));
+            let r = Math.round((my / HEX_SIZE / Math.sqrt(3)) - (0.5 * (q % 2)));
+
+            if (!game.grid[r] || !game.grid[r][q]) return;
+            let h = game.grid[r][q];
+
+            // Siege mode
+            if (game.mode === "Siege") {
+                if (h.type !== "ENEMY") {
+                    addLog("No enemy stronghold there.");
+                    return;
+                }
+                let totalAtk = game.army.reduce((s, u) => s + u.atk, 0);
+                if (totalAtk === 0) {
+                    addLog("No army to siege with! Recruit units first.");
+                    return;
+                }
+                h.fortification -= totalAtk;
+                game.weary += 15;
+                if (h.fortification <= 0) {
+                    h.type = "PLAINS";
+                    h.improvement = "CITY";
+                    h.owned = true;
+                    h.fortification = CITY_FORT_BASE;
+                    game.caps++;
+                    addLog("CAPITAL CAPTURED! Enemy throne falls.");
+                } else {
+                    addLog(`Siege: Enemy Walls at ${h.fortification} HP`);
+                }
+                game.mode = null;
+                updateModeIndicator();
+            }
+            // Settler mode: found new city
+            else if (game.mode === "Settler" && h.explored && !h.owned && h.type !== "ENEMY") {
+                if (game.energy < SETTLER_COST) {
+                    addLog("Energy drained before settling. Settler lost.");
+                } else {
+                    h.owned = true;
+                    h.improvement = "CITY";
+                    h.fortification = CITY_FORT_BASE;
+                    game.energy -= SETTLER_COST;
+                    reveal(q, r, 2);
+                    addLog("Expansion successful. New city founded.");
+                }
+                game.mode = null;
+                updateModeIndicator();
+            }
+            // Campus mode: place campus on owned tile without existing improvement
+            else if (game.mode === "Campus" && h.owned && !h.improvement) {
+                if (game.energy < CAMPUS_COST) {
+                    addLog("Energy drained before building Campus.");
+                } else {
+                    h.improvement = "CAMPUS";
+                    game.energy -= CAMPUS_COST;
+                    addLog("Campus established. Research boosts your Energy income.");
+                }
+                game.mode = null;
+                updateModeIndicator();
+            }
+            // Exploration: reveal tile at Energy cost
+            else if (!h.explored) {
+                if (game.energy < EXPLORE_COST) {
+                    addLog("Too exhausted to explore that tile.");
+                } else {
+                    h.explored = true;
+                    game.energy -= EXPLORE_COST;
+                    addLog("Scouts report back with new intel.");
+                }
+            }
+
+            updateIntel(h);
+            draw();
+        }
+
+        function updateIntel(h) {
+            const owner = h.owned ? "You" : (h.type === "ENEMY" ? "Enemy Kingdom" : "Neutral");
+            const imp = h.improvement ? h.improvement : "None";
+            document.getElementById('tile-info').innerHTML =
+                `Type: ${h.type}<br>` +
+                `Fortification: ${h.fortification || 0}<br>` +
+                `Owner: ${owner}<br>` +
+                `Improvement: ${imp}`;
         }
 
         function draw() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
-            for(var r=0; r<12; r++) {
-                for(var q=0; q<16; q++) {
-                    var t = grid[r][q];
-                    var pos = getXY(q, r);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < MAP_H; r++) {
+                for (let q = 0; q < MAP_W; q++) {
+                    let h = game.grid[r][q];
+                    let x = HEX_SIZE * (3 / 2 * q) + 100;
+                    let y = HEX_SIZE * (Math.sqrt(3) * (r + 0.5 * (q % 2))) + 100;
+
                     ctx.beginPath();
-                    for(var i=0; i<6; i++) ctx.lineTo(pos.x + H * Math.cos(i * Math.PI/3), pos.y + H * Math.sin(i * Math.PI/3));
+                    for (let i = 0; i < 6; i++) {
+                        let a = 2 * Math.PI / 6 * i;
+                        ctx.lineTo(x + HEX_SIZE * Math.cos(a), y + HEX_SIZE * Math.sin(a));
+                    }
                     ctx.closePath();
-                    ctx.fillStyle = t.seen ? (t.type === 'M' ? "#222" : "#142111") : "#080808";
+                    ctx.fillStyle = h.explored ? COLORS[h.type] : COLORS.VOID;
                     ctx.fill();
-                    ctx.strokeStyle = (selected && selected.q === q && selected.r === r) ? "#0ff" : "#111";
+                    ctx.strokeStyle = h.owned ? "#00ffcc" : "#222";
+                    ctx.lineWidth = h.owned ? 2 : 1;
                     ctx.stroke();
-                    if(t.seen && t.city) { ctx.fillStyle="#fff"; ctx.fillText("🏛️", pos.x-8, pos.y+5); }
-                    if(t.seen && t.impr === 'F') { ctx.fillStyle="#8d5"; ctx.fillText("🌾", pos.x-8, pos.y+5); }
+
+                    if (h.improvement === "CITY") {
+                        ctx.fillStyle = "#fff";
+                        ctx.fillRect(x - 4, y - 4, 8, 8);
+                    } else if (h.improvement === "CAMPUS") {
+                        ctx.fillStyle = "#00ffcc";
+                        ctx.beginPath();
+                        ctx.arc(x, y, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
                 }
             }
-            units.forEach(function(u) {
-                var pos = getXY(u.q, u.r);
-                ctx.fillStyle = u.side === 'AI' ? "#f0f" : (u.m > 0 ? (u.type==='SETTLER'?'#fff':'#f44') : "#444");
-                ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.fillText(u.type[0], pos.x-4, pos.y+4);
-            });
         }
 
-        window.onclick = function(e) {
-            if (document.getElementById('game-layout').style.display === 'none') return;
-            for(var r=0; r<12; r++) {
-                for(var q=0; q<16; q++) {
-                    var pos = getXY(q, r);
-                    if(Math.sqrt(Math.pow(e.
+        function showTab(btn, t) {
+            document.querySelectorAll('.action-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(t + '-pane').classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function addLog(m) {
+            const l = document.getElementById('game-log');
+            l.innerHTML += `<div>> ${m}</div>`;
+            l.scrollTop = l.scrollHeight;
+        }
+
+        function setMode(m) {
+            game.mode = m;
+            addLog(`Mode: ${m}. Select a tile.`);
+            updateModeIndicator();
+        }
+
+        function updateModeIndicator() {
+            document.getElementById('mode-indicator').innerText =
+                `Mode: ${game.mode ? game.mode : 'None'}`;
+        }
+
+        function countOwnedCities() {
+            let c = 0;
+            for (let r = 0; r < MAP_H; r++) {
+                for (let q = 0; q < MAP_W; q++) {
+                    const h = game.grid[r][q];
+                    if (h.owned && h.improvement === "CITY") c++;
+                }
+            }
+            return c;
+        }
+
+        function countCampuses() {
+            let c = 0;
+            for (let r = 0; r < MAP_H; r++) {
+                for (let q = 0; q < MAP_W; q++) {
+                    const h = game.grid[r][q];
+                    if (h.owned && h.improvement === "CAMPUS") c++;
+                }
+            }
+            return c;
+        }
+
+        function getEnemyCapitals() {
+            const list = [];
+            for (let r = 0; r < MAP_H; r++) {
+                for (let q = 0; q < MAP_W; q++) {
+                    const h = game.grid[r][q];
+                    if (h.type === "ENEMY" && h.fortification > 0) list.push(h);
+                }
+            }
+            return list;
+        }
+
+        function getPlayerCities() {
+            const list = [];
+            for (let r = 0; r < MAP_H; r++) {
+                for (let q = 0; q < MAP_W; q++) {
+                    const h = game.grid[r][q];
+                    if (h.owned && h.improvement === "CITY") list.push(h);
+                }
+            }
+            return list;
+        }
+
+        // Enemy invasion loop: infinite harassment
+        function enemyInvasionTick() {
+            const enemies = getEnemyCapitals();
+            const cities = getPlayerCities();
+            if (enemies.length === 0 || cities.length === 0) return;
+
+            const attacker = enemies[Math.floor(Math.random() * enemies.length)];
+            const target = cities[Math.floor(Math.random() * cities.length)];
+
+            const dmg = 20 + Math.floor(Math.random() * 40);
+            target.fortification -= dmg;
+            addLog(`Enemy invasion strikes one of your cities for ${dmg} damage!`);
+
+            if (target.fortification <= 0) {
+                addLog("A city has fallen to endless invasions!");
+                target.owned = false;
+                target.improvement = null;
+                target.fortification = 0;
+                // If it was a captured capital, reduce cap count
+                if (game.caps > 0) game.caps--;
+            }
+            draw();
+        }
+
+        // Game loop: economy, weariness, victory
+        setInterval(() => {
+            const baseIncome = 5;
+            const armyBus = game.army.reduce((s, u) => s + u.bus, 0);
+            const cityBonus = countOwnedCities() * 2;
+            const campusBonus = countCampuses() * 4;
+
+            let passive = baseIncome + armyBus + cityBonus + campusBonus;
+            let penalty = game.weary / 50;
+            let gain = Math.max(1, passive - penalty);
+
+            game.energy += gain;
+            if (game.energy < 0) game.energy = 0;
+
+            if (game.weary > 0) {
+                game.weary -= 0.5;
+                if (game.weary < 0) game.weary = 0;
+            }
+            if (game.weary > 100) game.weary = 100;
+
+            document.getElementById('ui-energy').innerText = Math.floor(game.energy);
+            document.getElementById('ui-weary').innerText = Math.floor(game.weary);
+            document.getElementById('ui-atk').innerText = game.army.reduce((s, u) => s + u.atk, 0);
+            document.getElementById('ui-caps').innerText = `${game.caps}/4`;
+
+            if (game.caps >= 4) {
+                addLog("DOMINATION VICTORY!");
+                alert("Victory!");
+            }
+        }, 1000);
+
+        // Invasions every 6 seconds
+        setInterval(enemyInvasionTick, 6000);
+
+        window.onload = () => {
+            canvas = document.getElementById('map-canvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+            canvas.addEventListener('mousedown', handleInteract);
+        };
+
+        window.onresize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
+        };
+    </script>
+</body>
+</html>
